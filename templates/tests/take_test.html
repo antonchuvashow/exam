@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="max-w-4xl mx-auto py-10">
+  <div class="flex justify-between items-center mb-6">
+    <h1 class="text-2xl font-bold">{{ test.title }}</h1>
+    <div class="flex items-center gap-4">
+      {% if remaining_seconds is not None %}
+        <div id="timer" class="text-xl font-semibold text-indigo-700"></div>
+      {% endif %}
+      <div id="warning-count" class="text-red-600 text-sm font-medium"></div>
+    </div>
+  </div>
+
+  <form id="test-form" method="post" action="{% url 'tests:submit_test' session.id %}" class="space-y-6">
+    {% csrf_token %}
+    <input type="hidden" name="client_token" id="client_token" value="{{ session.client_token }}">
+    {% for q in questions %}
+      <div class="bg-white shadow rounded-xl p-5 transition hover:shadow-lg">
+        <div class="flex items-start gap-4">
+          {% if q.image %}
+            <img src="{{ q.image.url }}" class="w-32 h-32 object-cover rounded-lg" alt="Вопрос изображение">
+          {% endif %}
+          <div>
+            <p class="font-semibold mb-2">{{ forloop.counter }}. {{ q.text }}</p>
+            {% for opt in q.options.all %}
+              <label class="flex items-center space-x-2 mb-1">
+                <input
+                  type="{% if q.question_type == 'single' %}radio{% else %}checkbox{% endif %}"
+                  name="q_{{ q.id }}"
+                  value="{{ opt.id }}"
+                  class="accent-indigo-600">
+                {% if opt.image %}
+                  <img src="{{ opt.image.url }}" class="w-16 h-16 object-cover rounded-md" alt="">
+                {% endif %}
+                <span>{{ opt.text }}</span>
+              </label>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+    <button type="submit" id="submit-button" class="mt-4 w-full bg-indigo-600 text-white py-3 rounded-lg text-lg hover:bg-indigo-700">
+      Отправить ответы
+    </button>
+  </form>
+</div>
+
+<script>
+(function() {
+  // helper: CSRF cookie
+  function getCookie(name) {
+    const v = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+    return v ? v.pop() : '';
+  }
+  const csrftoken = getCookie('csrftoken');
+
+  const sessionId = "{{ session.id }}";
+  const clientToken = document.getElementById("client_token").value;
+  const maxWarnings = {{ test.max_warnings|default:3 }};
+  const warningEl = document.getElementById("warning-count");
+  const timerEl = document.getElementById("timer");
+  const form = document.getElementById("test-form");
+
+  // оставшееся время, полученное с сервера (в секундах)
+  let remaining = {% if remaining_seconds is not None %}{{ remaining_seconds }}{% else %}null{% endif %};
+
+  // безопасный fetch wrapper (POST JSON)
+  function postJson(url, payload) {
+    return fetch(url, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": csrftoken
+      },
+      body: JSON.stringify(payload)
+    }).then(r => r.json());
+  }
+
+  // Таймер
+  let timerInterval = null;
+  if (remaining !== null) {
+    function updateTimerDisplay() {
+      if (remaining <= 0) {
+        clearInterval(timerInterval);
+        // автосабмит
+        form.submit();
+        return;
+      }
+      const m = Math.floor(remaining / 60);
+      const s = remaining % 60;
+      timerEl.textContent = `${m}:${String(s).padStart(2,'0')}`;
+      remaining--;
+    }
+    updateTimerDisplay();
+    timerInterval = setInterval(updateTimerDisplay, 1000);
+  }
+
+  // Heartbeat — каждые 10 секунд уведомляем сервер
+  const heartbeatUrl = "{% url 'tests:heartbeat' session.id %}";
+  const warnUrl = "{% url 'tests:warn' session.id %}";
+  let heartbeatTimer = setInterval(() => {
+    postJson(heartbeatUrl, { token: clientToken }).catch(() => {
+      // если heartbeat падает — пометка в консоль, но сервер всё равно проверит при submit
+      console.warn("heartbeat failed");
+    });
+  }, 10000);
+
+  // Считает на клиенте warnings для UX, но сервер — истина
+  let localWarnings = 0;
+
+  function handleVisibilityChange() {
+    if (document.hidden) {
+      // Отправляем warn на сервер
+      postJson(warnUrl, { token: clientToken })
+        .then(data => {
+          if (!data.ok) {
+            console.warn("warn rejected:", data);
+            return;
+          }
+          localWarnings = data.tab_switches;
+          warningEl.textContent = `⚠️ Нарушение ${localWarnings} из ${maxWarnings}`;
+          if (data.submit) {
+            // Сервер пометил сессию как завершённую — форсируем submit (после небольшой задержки)
+            setTimeout(()=> form.submit(), 300);
+          }
+        })
+        .catch(err => console.warn("warn failed", err));
+    }
+  }
+
+  document.addEventListener("visibilitychange", handleVisibilityChange);
+
+  // Предупреждение при попытке закрыть/перезагрузить
+  window.addEventListener("beforeunload", (e) => {
+    e.preventDefault();
+    e.returnValue = "";
+  });
+
+  // На случай, если захотят вручную отключить скрипт:
+  // Сервер в submit_test проверит token, last_heartbeat и время — это основное.
+})();
+</script>
+{% endblock %}

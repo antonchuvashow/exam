@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="min-h-[80vh] flex items-center justify-center bg-gray-50">
+    <div class="bg-white shadow-lg rounded-2xl p-10 w-full max-w-md text-center">
+        <h1 class="text-2xl font-semibold mb-4">Выход из аккаунта</h1>
+        <p class="text-gray-600 mb-8">Вы уверены, что хотите выйти?</p>
+        <form method="post" action="{% url 'account_logout' %}">
+            {% csrf_token %}
+            <button type="submit"
+                class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold transition">
+                Выйти
+            </button>
+        </form>
+        <a href="/" class="block mt-4 text-indigo-600 hover:underline">Отмена</a>
+    </div>
+</div>
+{% endblock %}

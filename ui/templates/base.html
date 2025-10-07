@@ -1,0 +1,33 @@
+{% load static tailwind_tags %}
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <title>MyExam</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'css/dist/styles.css' %}">
+</head>
+
+<body class="bg-gray-100 min-h-screen">
+    <nav class="bg-indigo-700 text-white py-4">
+        <div class="max-w-5xl mx-auto flex justify-between items-center px-4">
+            <h1 class="text-2xl font-semibold"><a href="/">MyExam</a></h1>
+            <div>
+                {% if user.is_authenticated %}
+                <span class="mr-4">{{ user.email }}</span>
+                <a href="{% url 'account_logout' %}" class="underline">Выйти</a>
+                {% else %}
+                <a href="{% url 'account_login' %}"
+                    class="px-4 py-2 bg-white text-indigo-700 rounded-lg font-semibold hover:bg-indigo-100">Войти</a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+</body>
+
+</html>
