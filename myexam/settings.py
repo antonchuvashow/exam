@@ -87,10 +87,17 @@ WSGI_APPLICATION = "myexam.wsgi.application"
 
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": "exam_db",
+        "USER": "exam_user",
+        "PASSWORD": "exam_pass",
+        "HOST": "db",
+        "PORT": 5432,
     }
 }
+
+STATIC_URL = "/static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
 
 # Password validation
@@ -159,13 +166,11 @@ LOGOUT_REDIRECT_URL = "/"
 
 # Используем кастомную форму
 SOCIALACCOUNT_FORMS = {"signup": "myexam.forms.SocialSignupForm"}
-# SOCIALACCOUNT_ADAPTER = "myexam.adapters.CustomSocialAccountAdapter"
-
-SOCIALACCOUNT_EMAIL_AUTHENTICATION_AUTO_CONNECT = True
 
 # Если используешь только Google
 SOCIALACCOUNT_LOGIN_ON_GET = True
 SOCIALACCOUNT_AUTO_SIGNUP = False
+SOCIALACCOUNT_STORE_TOKENS = True
 
 # Media files
 MEDIA_URL = "/media/"

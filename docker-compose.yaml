@@ -1,0 +1,44 @@
+version: "3.9"
+
+x-app: &default-app
+  build:
+    context: "."
+  volumes:
+    - .:/app
+  restart: "unless-stopped"
+  environment:
+    DJANGO_SETTINGS_MODULE: myexam.settings
+    PYTHONUNBUFFERED: 1
+
+services:
+  web:
+    <<: *default-app
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    environment:
+      DATABASE_URL: postgres://exam_user:exam_pass@db:5432/exam_db
+      DJANGO_SUPERUSER_PASSWORD: admin
+
+  tailwind:
+    <<: *default-app
+    command: python manage.py tailwind start
+    tty: true
+    depends_on:
+      - web
+
+  db:
+    image: postgres:15
+    restart: always
+    environment:
+      POSTGRES_DB: exam_db
+      POSTGRES_USER: exam_user
+      POSTGRES_PASSWORD: exam_pass
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+volumes:
+  postgres_data:

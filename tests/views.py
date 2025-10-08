@@ -7,17 +7,25 @@ from django.db.models import Count, F
 from django.http import JsonResponse, HttpResponseForbidden, HttpResponseBadRequest
 from datetime import timedelta
 
-from .models import Test, AnswerOption, UserTestSession, UserAnswer
+from .models import Test, AnswerOption, UserTestSession, UserAnswer, User
+from allauth.socialaccount.models import SocialToken, SocialApp
+from googleapiclient.discovery import build
+import logging
+from google.oauth2.credentials import Credentials
+
+logger = logging.getLogger(__name__)
 
 
 @login_required
 def test_list(request):
-    tests = Test.objects.all()
+    user_groups = request.user.groups.all()
+    tests = Test.objects.filter(groups__in=user_groups).annotate(
+        question_count=Count("questions")
+    )
     user_sessions = UserTestSession.objects.filter(
         user=request.user, finished_at__isnull=False
     )
     session_map = {s.test_id: s for s in user_sessions}
-    print(session_map)
     for test in tests:
         test.user_session = session_map.get(test.id)  # либо None, если ещё не проходил
 
@@ -137,41 +145,31 @@ def warn(request, session_id):
 def submit_test(request, session_id):
     session = get_object_or_404(UserTestSession, id=session_id, user=request.user)
     if session.finished_at:
-        # уже завершено — показываем результат
-        return redirect(
-            "tests:test_result", session_id=session.id
-        )  # предполагается страница просмотра результата
+        return redirect("tests:test_result", session_id=session.id)
 
-    # Проверяем токен из формы
+    # Проверяем токен сессии
     token = request.POST.get("client_token")
     if token != session.client_token:
         return HttpResponseForbidden("Invalid session token")
 
     test = session.test
 
-    # Проверка по времени (прибавляем небольшой запас 5 секунд)
+    # Проверка по времени
     if test.duration_minutes:
         allowed = timedelta(minutes=test.duration_minutes) + timedelta(seconds=5)
         if timezone.now() > session.started_at + allowed:
-            # сессия превысила время — помечаем как нарушение и завершаем
             session.finished_at = timezone.now()
             session.submitted_due_to_violation = True
-            session.save(
-                update_fields=[
-                    "finished_at",
-                    "submitted_due_to_violation",
-                ]
-            )
+            session.save(update_fields=["finished_at", "submitted_due_to_violation"])
             return render(request, "tests/late_submitted.html", {"test": test})
 
-    # Проверка heartbeat: если клиент не отправлял heartbeat > 60s — помечаем подозрительно
+    # Проверка heartbeat
     if session.last_heartbeat and (timezone.now() - session.last_heartbeat) > timedelta(
         seconds=60
     ):
         session.submitted_due_to_violation = True
-        session.is_submitted = True
 
-    # Сохраняем ответы (как раньше)
+    # Сохраняем ответы
     questions = test.questions.all()
     for question in questions:
         selected_ids = request.POST.getlist(f"q_{question.id}")
@@ -190,7 +188,7 @@ def submit_test(request, session_id):
         ]
     )
 
-    # Подсчёт результатов (как раньше)
+    # Подсчёт результатов
     correct = 0
     total = 0
     for q in questions:

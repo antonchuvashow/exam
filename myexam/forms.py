@@ -9,14 +9,14 @@ class SocialSignupForm(SignupForm):
     last_name = forms.CharField(max_length=30, required=True, label=_("Фамилия"))
     group = forms.ModelChoiceField(
         queryset=Group.objects.all(),
-        required=True,  # Сделаем обязательным
+        required=True,
         label=_("Группа"),
         empty_label=_("Выберите группу"),
     )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # self.fields["username"].widget = forms.HiddenInput()
+        self.fields.pop("username")
 
     def save(self, request):
         user = super().save(request)

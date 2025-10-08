@@ -66,31 +66,46 @@ class QuestionInline(admin.TabularInline):
 
 @admin.register(Test)
 class TestAdmin(admin.ModelAdmin):
-    list_display = ("title", "duration_minutes", "created_at")
+    list_display = ("title", "groups_preview", "duration_minutes", "created_at")
     search_fields = ("title",)
     inlines = [QuestionInline]
     fieldsets = (
-        (None, {"fields": ("title", "description")}),
-        ("Настройки", {"fields": ("duration_minutes",)}),
+        (
+            None,
+            {
+                "fields": (
+                    "title",
+                    "description",
+                    "groups",
+                )
+            },
+        ),
+        ("Настройки", {"fields": ("duration_minutes", "max_warnings")}),
     )
+
+    def groups_preview(self, obj):
+        return ", ".join(g.name for g in obj.groups.all())
 
 
 @admin.register(UserTestSession)
 class UserTestSessionAdmin(admin.ModelAdmin):
-    # tests/admin.py (добавить в UserTestSessionAdmin)
     list_display = (
-        "user",
+        "get_user_full_name",
         "test",
-        "started_at",
-        "finished_at",
         "tab_switches",
-        "last_heartbeat",
         "submitted_due_to_violation",
+        "score_percent",
     )
     readonly_fields = ("client_token", "last_heartbeat")
 
     list_filter = ("test", "submitted_due_to_violation")
-    search_fields = ("user__username", "test__title")
+    search_fields = ("user__get_ful_name", "test__title")
+
+    def get_user_full_name(self, obj):
+        return obj.user.get_full_name()
+
+    get_user_full_name.short_description = "User"
+    get_user_full_name.admin_order_field = "user__last_name"
 
 
 @admin.register(UserAnswer)

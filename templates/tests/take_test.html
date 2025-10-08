@@ -107,38 +107,36 @@
   }, 10000);
 
   // Считает на клиенте warnings для UX, но сервер — истина
-  let localWarnings = 0;
+  // Счётчик локальных предупреждений
+    let localWarnings = 0;
 
-  function handleVisibilityChange() {
-    if (document.hidden) {
-      // Отправляем warn на сервер
-      postJson(warnUrl, { token: clientToken })
-        .then(data => {
-          if (!data.ok) {
-            console.warn("warn rejected:", data);
-            return;
-          }
-          localWarnings = data.tab_switches;
-          warningEl.textContent = `⚠️ Нарушение ${localWarnings} из ${maxWarnings}`;
-          if (data.submit) {
-            // Сервер пометил сессию как завершённую — форсируем submit (после небольшой задержки)
-            setTimeout(()=> form.submit(), 300);
-          }
-        })
-        .catch(err => console.warn("warn failed", err));
+    function sendWarn() {
+        postJson(warnUrl, { token: clientToken })
+            .then(data => {
+                if (!data.ok) {
+                    console.warn("warn rejected:", data);
+                    return;
+                }
+                localWarnings = data.tab_switches;
+                warningEl.textContent = `⚠️ Нарушение ${localWarnings} из ${maxWarnings}`;
+                if (data.submit) {
+                    setTimeout(() => form.submit(), 300);
+                }
+            })
+            .catch(err => console.warn("warn failed", err));
     }
-  }
 
-  document.addEventListener("visibilitychange", handleVisibilityChange);
+    function handleWindowBlur() {
+        sendWarn();
+    }
+    window.addEventListener("blur", handleWindowBlur);
+
 
   // Предупреждение при попытке закрыть/перезагрузить
   window.addEventListener("beforeunload", (e) => {
     e.preventDefault();
     e.returnValue = "";
   });
-
-  // На случай, если захотят вручную отключить скрипт:
-  // Сервер в submit_test проверит token, last_heartbeat и время — это основное.
 })();
 </script>
 {% endblock %}

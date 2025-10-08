@@ -1,7 +1,5 @@
-# tests/models.py
 from django.db import models
 from django.contrib.auth import get_user_model
-from django.utils import timezone
 import secrets
 
 User = get_user_model()
@@ -10,13 +8,10 @@ User = get_user_model()
 class Test(models.Model):
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
-    duration_minutes = models.PositiveIntegerField(
-        null=True, blank=True
-    )  # None = без ограничения
-    max_warnings = models.PositiveIntegerField(
-        default=3
-    )  # new: сколько уходов можно допустить
+    duration_minutes = models.PositiveIntegerField(null=True, blank=True)
+    max_warnings = models.PositiveIntegerField(default=3)
     created_at = models.DateTimeField(auto_now_add=True)
+    groups = models.ManyToManyField("auth.Group", blank=True)
 
     def __str__(self):
         return self.title
@@ -60,13 +55,16 @@ class UserTestSession(models.Model):
     tab_switches = models.PositiveIntegerField(default=0)
     submitted_due_to_violation = models.BooleanField(default=False)
 
-    # new fields
     last_heartbeat = models.DateTimeField(null=True, blank=True)
     client_token = models.CharField(max_length=128, blank=True, null=True, unique=True)
 
     # result info
     score_percent = models.FloatField(null=True, blank=True)
-    is_submitted = models.BooleanField(default=False)
+
+    # Google Classroom integration
+    google_student_submission_id = models.CharField(
+        max_length=128, blank=True, null=True
+    )
 
     def save(self, *args, **kwargs):
         if not self.client_token:
@@ -87,4 +85,4 @@ class UserAnswer(models.Model):
     code_answer = models.TextField(blank=True)
 
     def __str__(self):
-        return f"Ответ {self.session.user.email} — {self.question.id}"
+        return f"Ответ {self.session.user.get_full_name()} — {self.question.id}"
