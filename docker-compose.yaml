@@ -17,16 +17,18 @@ services:
       - "8000:8000"
     depends_on:
       - db
+    env_file:
+      - .env
     environment:
-      DATABASE_URL: postgres://exam_user:exam_pass@db:5432/exam_db
-      DJANGO_SUPERUSER_PASSWORD: admin
+      RUN_WEB: "1"
 
   tailwind:
     <<: *default-app
-    command: python manage.py tailwind start
     tty: true
     depends_on:
       - web
+    environment:
+      RUN_WEB: "0"
 
   db:
     image: postgres:15

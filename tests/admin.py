@@ -1,13 +1,19 @@
 from django.contrib import admin
 from django.utils.html import format_html
 from .models import Test, Question, AnswerOption, UserTestSession, UserAnswer
+from .forms import QuestionAdminForm
 
 
 class AnswerOptionInline(admin.TabularInline):
     model = AnswerOption
     extra = 2
-    fields = ("text", "image_preview", "image", "is_correct")
-    readonly_fields = ("image_preview",)
+    fields = ("display_id", "text", "image_preview", "image", "is_correct")
+    readonly_fields = ("display_id", "image_preview")
+
+    def display_id(self, obj):
+        return format_html('<span style="color: #888;">{}</span>', obj.id)
+
+    display_id.short_description = "ID"
 
     def image_preview(self, obj):
         if obj.image:
@@ -21,6 +27,7 @@ class AnswerOptionInline(admin.TabularInline):
 
 @admin.register(Question)
 class QuestionAdmin(admin.ModelAdmin):
+    form = QuestionAdminForm
     list_display = ("text_short", "test", "question_type", "image_preview")
     list_filter = ("test", "question_type")
     search_fields = ("text",)
@@ -28,8 +35,12 @@ class QuestionAdmin(admin.ModelAdmin):
     readonly_fields = ("image_preview",)
 
     fieldsets = (
-        (None, {"fields": ("test", "text", "question_type")}),
+        (
+            None,
+            {"fields": ("test", "text", "question_type", "correct_order")},
+        ),
         ("Изображение", {"fields": ("image_preview", "image")}),
+        ("Дополнительно", {"fields": ("metadata",)}),
     )
 
     def text_short(self, obj):
@@ -70,21 +81,14 @@ class TestAdmin(admin.ModelAdmin):
     search_fields = ("title",)
     inlines = [QuestionInline]
     fieldsets = (
-        (
-            None,
-            {
-                "fields": (
-                    "title",
-                    "description",
-                    "groups",
-                )
-            },
-        ),
+        (None, {"fields": ("title", "description", "groups")}),
         ("Настройки", {"fields": ("duration_minutes", "max_warnings")}),
     )
 
     def groups_preview(self, obj):
-        return ", ".join(g.name for g in obj.groups.all())
+        return ", ".join(g.name for g in obj.groups.all()) or "—"
+
+    groups_preview.short_description = "Группы"
 
 
 @admin.register(UserTestSession)
@@ -92,40 +96,46 @@ class UserTestSessionAdmin(admin.ModelAdmin):
     list_display = (
         "get_user_full_name",
         "test",
+        "score_percent",
         "tab_switches",
         "submitted_due_to_violation",
-        "score_percent",
+        "finished_at",
     )
     readonly_fields = ("client_token", "last_heartbeat")
-
     list_filter = ("test", "submitted_due_to_violation")
-    search_fields = ("user__get_ful_name", "test__title")
+    search_fields = ("user__first_name", "user__last_name", "test__title")
 
     def get_user_full_name(self, obj):
         return obj.user.get_full_name()
 
-    get_user_full_name.short_description = "User"
+    get_user_full_name.short_description = "Пользователь"
     get_user_full_name.admin_order_field = "user__last_name"
 
 
 @admin.register(UserAnswer)
 class UserAnswerAdmin(admin.ModelAdmin):
-    list_display = ("session", "question", "selected_options_display", "file_preview")
+    list_display = (
+        "session",
+        "question",
+        "selected_options_display",
+        "short_text_answer",
+    )
     list_filter = ("question__test",)
     search_fields = ("session__user__username", "question__text")
-    readonly_fields = ("file_preview",)
 
     def selected_options_display(self, obj):
-        return ", ".join(a.text for a in obj.selected_options.all())
+        opts = [opt.text for opt in obj.selected_options.all()]
+        return ", ".join(opts) if opts else "—"
 
     selected_options_display.short_description = "Выбранные ответы"
 
-    def file_preview(self, obj):
-        if obj.uploaded_file:
-            file_url = obj.uploaded_file.url
-            return format_html(
-                '<a href="{}" target="_blank">Скачать файл</a>', file_url
+    def short_text_answer(self, obj):
+        if obj.text_answer:
+            return (
+                (obj.text_answer[:70] + "...")
+                if len(obj.text_answer) > 70
+                else obj.text_answer
             )
         return "—"
 
-    file_preview.short_description = "Ответ (файл)"
+    short_text_answer.short_description = "Текстовый ответ"

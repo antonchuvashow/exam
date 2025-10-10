@@ -1,51 +1,152 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="max-w-4xl mx-auto py-10">
-  <div class="flex justify-between items-center mb-6">
-    <h1 class="text-2xl font-bold">{{ test.title }}</h1>
-    <div class="flex items-center gap-4">
-      {% if remaining_seconds is not None %}
-        <div id="timer" class="text-xl font-semibold text-indigo-700"></div>
-      {% endif %}
-      <div id="warning-count" class="text-red-600 text-sm font-medium"></div>
-    </div>
-  </div>
-
-  <form id="test-form" method="post" action="{% url 'tests:submit_test' session.id %}" class="space-y-6">
-    {% csrf_token %}
-    <input type="hidden" name="client_token" id="client_token" value="{{ session.client_token }}">
-    {% for q in questions %}
-      <div class="bg-white shadow rounded-xl p-5 transition hover:shadow-lg">
-        <div class="flex items-start gap-4">
-          {% if q.image %}
-            <img src="{{ q.image.url }}" class="w-32 h-32 object-cover rounded-lg" alt="Вопрос изображение">
-          {% endif %}
-          <div>
-            <p class="font-semibold mb-2">{{ forloop.counter }}. {{ q.text }}</p>
-            {% for opt in q.options.all %}
-              <label class="flex items-center space-x-2 mb-1">
-                <input
-                  type="{% if q.question_type == 'single' %}radio{% else %}checkbox{% endif %}"
-                  name="q_{{ q.id }}"
-                  value="{{ opt.id }}"
-                  class="accent-indigo-600">
-                {% if opt.image %}
-                  <img src="{{ opt.image.url }}" class="w-16 h-16 object-cover rounded-md" alt="">
-                {% endif %}
-                <span>{{ opt.text }}</span>
-              </label>
-            {% endfor %}
-          </div>
+    <!-- Заголовок -->
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+        <h1 class="text-3xl font-bold text-gray-800">{{ test.title }}</h1>
+        <div class="flex items-center gap-6">
+            {% if remaining_seconds is not None %}
+            <div id="timer" class="text-xl font-semibold text-indigo-700 bg-indigo-100 px-4 py-2 rounded-lg shadow-sm">
+            </div>
+            {% endif %}
+            <div id="warning-count" class="text-red-600 text-sm font-medium"></div>
         </div>
-      </div>
-    {% endfor %}
-    <button type="submit" id="submit-button" class="mt-4 w-full bg-indigo-600 text-white py-3 rounded-lg text-lg hover:bg-indigo-700">
-      Отправить ответы
-    </button>
-  </form>
+    </div>
+
+    <!-- Форма теста -->
+    <form id="test-form" method="post" action="{% url 'tests:submit_test' session.id %}" enctype="multipart/form-data"
+        class="space-y-8">
+        {% csrf_token %}
+        <input type="hidden" name="client_token" id="client_token" value="{{ session.client_token }}">
+
+        {% for q in questions %}
+        <div
+            class="bg-white shadow-md rounded-2xl p-6 border border-gray-100 hover:border-indigo-200 hover:shadow-lg transition duration-300">
+            <div class="flex flex-col sm:flex-row items-start gap-6">
+                {% if q.image %}
+                <img src="{{ q.image.url }}" class="w-40 h-40 object-cover rounded-xl border border-gray-200"
+                    alt="Изображение вопроса">
+                {% endif %}
+
+                <div class="flex-1">
+                    <p class="font-semibold text-lg mb-3 text-gray-800">
+                        {{ forloop.counter }}. {{ q.text }}
+                    </p>
+
+                    {% if q.question_type == "single" %}
+                    <div class="space-y-2">
+                        {% for opt in q.options.all %}
+                        <label
+                            class="flex items-center space-x-3 p-3 rounded-lg border border-gray-200 hover:bg-indigo-50 cursor-pointer transition">
+                            <input type="radio" name="q_{{ q.id }}" value="{{ opt.id }}"
+                                class="accent-indigo-600 w-5 h-5 focus:ring-indigo-500 focus:ring-offset-1">
+                            {% if opt.image %}
+                            <img src="{{ opt.image.url }}"
+                                class="w-16 h-16 object-cover rounded-md border border-gray-300" alt="">
+                            {% endif %}
+                            <span class="text-gray-700">{{ opt.text }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+
+                    {% elif q.question_type == "multiple" %}
+                    <div class="space-y-2">
+                        {% for opt in q.options.all %}
+                        <label
+                            class="flex items-center space-x-3 p-3 rounded-lg border border-gray-200 hover:bg-indigo-50 cursor-pointer transition">
+                            <input type="checkbox" name="q_{{ q.id }}" value="{{ opt.id }}"
+                                class="accent-indigo-600 w-5 h-5 focus:ring-indigo-500 focus:ring-offset-1">
+                            {% if opt.image %}
+                            <img src="{{ opt.image.url }}"
+                                class="w-16 h-16 object-cover rounded-md border border-gray-300" alt="">
+                            {% endif %}
+                            <span class="text-gray-700">{{ opt.text }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+
+                    {% elif q.question_type == "text" %}
+                    <input type="text" name="q_{{ q.id }}" placeholder="Введите короткий ответ"
+                        class="w-full border rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" autocomplete="off">
+
+                    {% elif q.question_type == "long_text" %}
+                    <textarea name="q_{{ q.id }}" rows="4" placeholder="Введите развернутый ответ"
+                        class="w-full border rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" autocomplete="off"></textarea>
+
+                    {% elif q.question_type == "number" %}
+                    <input type="number" name="q_{{ q.id }}" placeholder="Введите число"
+                        class="w-40 border rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" autocomplete="off">
+
+                    {% elif q.question_type == "order" %}
+                    <div class="space-y-2">
+                        <ul id="order_{{ q.id }}" class="list-none p-0">
+                            {% for opt in q.options.all %}
+                            <li class="bg-gray-100 p-3 rounded-lg border border-gray-200 cursor-pointer hover:bg-indigo-50 transition relative"
+                                data-option-id="{{ opt.id }}">
+                                <span
+                                    class="order-number absolute top-1 right-2 text-white bg-indigo-600 w-6 h-6 text-center rounded-full hidden"></span>
+                                {{ opt.text }}
+                            </li>
+                            {% endfor %}
+                        </ul>
+                        <input type="hidden" name="q_{{ q.id }}" id="order_input_{{ q.id }}">
+                        <p class="text-sm text-gray-500 mt-2">* Кликните по элементам в правильном порядке</p>
+                    </div>
+
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+
+        <!-- Кнопка отправки -->
+        <div class="pt-4">
+            <button type="submit" id="submit-button"
+                class="w-full bg-indigo-600 text-white py-3.5 rounded-xl text-lg font-semibold shadow-md hover:bg-indigo-700 hover:shadow-lg active:scale-[0.98] transition">
+                Отправить ответы
+            </button>
+        </div>
+    </form>
 </div>
 
 <script>
+document.addEventListener("DOMContentLoaded", function() {
+    {% for q in questions %}
+    {% if q.question_type == "order" %}
+    const list = document.getElementById("order_{{ q.id }}");
+    const input = document.getElementById("order_input_{{ q.id }}");
+    let order = [];
+
+    list.querySelectorAll("li").forEach(item => {
+        item.addEventListener("click", () => {
+            const optionId = item.dataset.optionId;
+
+            if (order.includes(optionId)) return;
+
+            order.push(optionId);
+
+            const numberEl = item.querySelector(".order-number");
+            numberEl.textContent = order.length;
+            numberEl.classList.remove("hidden");
+
+            input.value = JSON.stringify(order);
+        });
+    });
+
+    const resetBtn = document.createElement("button");
+    resetBtn.type = "button";
+    resetBtn.textContent = "Сбросить порядок";
+    resetBtn.className = "mt-2 px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 text-sm";
+    resetBtn.addEventListener("click", () => {
+        order = [];
+        input.value = "";
+        list.querySelectorAll(".order-number").forEach(span => span.classList.add("hidden"));
+    });
+    list.after(resetBtn);
+    {% endif %}
+    {% endfor %}
+});
+
 (function() {
   // helper: CSRF cookie
   function getCookie(name) {
@@ -106,37 +207,19 @@
     });
   }, 10000);
 
-  // Считает на клиенте warnings для UX, но сервер — истина
-  // Счётчик локальных предупреждений
-    let localWarnings = 0;
-
-    function sendWarn() {
-        postJson(warnUrl, { token: clientToken })
+    function sendWarn(action) {
+        postJson(warnUrl, { token: clientToken, action: action })
             .then(data => {
-                if (!data.ok) {
-                    console.warn("warn rejected:", data);
-                    return;
-                }
-                localWarnings = data.tab_switches;
-                warningEl.textContent = `⚠️ Нарушение ${localWarnings} из ${maxWarnings}`;
-                if (data.submit) {
-                    setTimeout(() => form.submit(), 300);
-                }
-            })
-            .catch(err => console.warn("warn failed", err));
+                warningEl.textContent =
+                    `⚠️ Нарушения: ${data.tab_switches} из ${maxWarnings}, вне страницы: ${data.time_outside_seconds} сек`;
+                if (data.submit) setTimeout(() => form.submit(), 300);
+            });
     }
 
-    function handleWindowBlur() {
-        sendWarn();
-    }
-    window.addEventListener("blur", handleWindowBlur);
+    window.addEventListener("blur", () => sendWarn("blur"));
+    window.addEventListener("focus", () => sendWarn("focus"));
 
 
-  // Предупреждение при попытке закрыть/перезагрузить
-  window.addEventListener("beforeunload", (e) => {
-    e.preventDefault();
-    e.returnValue = "";
-  });
 })();
 </script>
 {% endblock %}

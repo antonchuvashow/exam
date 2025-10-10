@@ -11,10 +11,10 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
-from dotenv import load_dotenv
 import os
 
-load_dotenv()
+# from dotenv import load_dotenv
+# load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -158,6 +158,10 @@ SOCIALACCOUNT_PROVIDERS = {
         "AUTH_PARAMS": {
             "access_type": "online",
         },
+        "APP": {
+            "client_id": os.environ.get("GOOGLE_CLIENT_ID"),
+            "secret": os.environ.get("GOOGLE_SECRET_KEY"),
+        },
     }
 }
 
@@ -166,6 +170,8 @@ LOGOUT_REDIRECT_URL = "/"
 
 # Используем кастомную форму
 SOCIALACCOUNT_FORMS = {"signup": "myexam.forms.SocialSignupForm"}
+
+SOCIALACCOUNT_ADAPTER = "myexam.adapters.GoogleAccountAdapter"
 
 # Если используешь только Google
 SOCIALACCOUNT_LOGIN_ON_GET = True
@@ -179,18 +185,25 @@ MEDIA_ROOT = BASE_DIR / "media"
 # Tailwind CSS configuration
 TAILWIND_APP_NAME = "ui"
 
-# LOGGING = {
-#     "version": 1,
-#     "disable_existing_loggers": False,
-#     "handlers": {
-#         "console": {
-#             "class": "logging.StreamHandler",
-#         },
-#     },
-#     "loggers": {
-#         "django": {
-#             "handlers": ["console"],
-#             "level": "DEBUG",
-#         },
-#     },
-# }
+# Path to the pre-trained model for semantic similarity
+MODEL_PATH = "deepvk/USER2-base"
+
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "console": {"class": "logging.StreamHandler"},
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": "INFO",
+    },
+    "loggers": {
+        "tests": {
+            "handlers": ["console"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
+    },
+}

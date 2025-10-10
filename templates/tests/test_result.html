@@ -5,15 +5,16 @@
 
     <div class="text-center mb-6">
         <p class="text-gray-600 text-lg mb-2">Ваш результат:</p>
-        <p class="text-4xl font-bold text-blue-600">{{ score_percent }}%</p>
+        <p class="text-4xl font-bold text-blue-600">{{ session.score_percent }}%</p>
         <p class="text-gray-600 mt-2">
-            {{ correct_answers }} из {{ total_questions }} правильных
+            {{ session.earned_points }} из {{ session.total_points }} баллов
         </p>
     </div>
 
-    {% if session.tab_switches > 0 %}
+    {% if session.time_outside_seconds > 0 %}
     <div class="bg-red-50 border border-red-200 text-red-600 rounded-xl p-4 mb-6">
-        Зафиксировано нарушений: <b>{{ session.tab_switches }}</b>. 
+        Времени вне страницы: <b>{{ session.time_outside_seconds }}</b> секунд.
+        Нарушения: <b>{{ session.tab_switches }}</b> из допустимых <b>{{ test.max_warnings }}</b>.
         {% if session.submitted_due_to_violation %}
             Тест завершён автоматически из-за превышения лимита нарушений.
         {% endif %}

@@ -1,17 +1,13 @@
-# tests/views.py
 import json
+import logging
+from datetime import timedelta
 from django.shortcuts import render, get_object_or_404, redirect
 from django.utils import timezone
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, F
 from django.http import JsonResponse, HttpResponseForbidden, HttpResponseBadRequest
-from datetime import timedelta
 
 from .models import Test, AnswerOption, UserTestSession, UserAnswer, User
-from allauth.socialaccount.models import SocialToken, SocialApp
-from googleapiclient.discovery import build
-import logging
-from google.oauth2.credentials import Credentials
 
 logger = logging.getLogger(__name__)
 
@@ -27,16 +23,13 @@ def test_list(request):
     )
     session_map = {s.test_id: s for s in user_sessions}
     for test in tests:
-        test.user_session = session_map.get(test.id)  # либо None, если ещё не проходил
-
+        test.user_session = session_map.get(test.id)
     return render(request, "tests/test_list.html", {"tests": tests})
 
 
 @login_required
 def start_test(request, test_id):
     test = get_object_or_404(Test, id=test_id)
-
-    # Проверка: уже завершал ли пользователь этот тест
     existing_session = UserTestSession.objects.filter(
         user=request.user, test=test, finished_at__isnull=False
     ).first()
@@ -56,10 +49,7 @@ def start_test(request, test_id):
 def take_test(request, session_id):
     session = get_object_or_404(UserTestSession, id=session_id, user=request.user)
     if session.finished_at:
-        # уже завершено — показываем результат
-        return redirect(
-            "tests:test_result", test_id=session.id
-        )  # предполагается страница просмотра результата
+        return redirect("tests:test_result", test_id=session.id)
 
     test = session.test
     questions = test.questions.prefetch_related("options").all()
@@ -72,7 +62,6 @@ def take_test(request, session_id):
     else:
         remaining_seconds = None
 
-    # Передаём токен, оставшееся время и server timestamp (чтобы JS мог синхронизоваться)
     return render(
         request,
         "tests/take_test.html",
@@ -88,7 +77,6 @@ def take_test(request, session_id):
 
 @login_required
 def heartbeat(request, session_id):
-    # ожидаем POST с JSON {"token": "..."}
     if request.method != "POST":
         return HttpResponseBadRequest("POST required")
     try:
@@ -108,9 +96,9 @@ def heartbeat(request, session_id):
 
 @login_required
 def warn(request, session_id):
-    # уведомление об уходе со страницы: POST JSON {"token": "..."}
     if request.method != "POST":
         return HttpResponseBadRequest("POST required")
+
     try:
         payload = json.loads(request.body.decode())
     except Exception:
@@ -121,23 +109,40 @@ def warn(request, session_id):
     if token != session.client_token:
         return JsonResponse({"ok": False, "error": "invalid token"}, status=403)
 
-    # атомарно инкрементим
-    UserTestSession.objects.filter(pk=session.pk).update(
-        tab_switches=F("tab_switches") + 1
-    )
-    session.refresh_from_db()
+    now = timezone.now()
+    submit = False
+    action = payload.get("action")  # "blur" или "focus"
 
-    # если превышен лимит — помечаем сессию как завершённую по нарушению
-    if session.tab_switches >= session.test.max_warnings:
+    if action == "blur":
+        session.tab_switches += 1
+        session.last_left_at = now
+        session.save(update_fields=["tab_switches", "last_left_at"])
+
+    elif action == "focus":
+        if session.last_left_at:
+            delta = now - session.last_left_at
+            session.time_outside_seconds += int(delta.total_seconds())
+            session.last_left_at = None
+            session.save(update_fields=["time_outside_seconds", "last_left_at"])
+
+    max_tab_switches = session.test.max_warnings
+    max_outside_seconds = session.test.max_warnings * 60  # 1 мин на warning
+    if (
+        session.tab_switches >= max_tab_switches
+        or session.time_outside_seconds >= max_outside_seconds
+    ):
         session.submitted_due_to_violation = True
-        session.finished_at = timezone.now()
+        session.finished_at = now
         session.save(update_fields=["submitted_due_to_violation", "finished_at"])
-        return JsonResponse(
-            {"ok": True, "submit": True, "tab_switches": session.tab_switches}
-        )
+        submit = True
 
     return JsonResponse(
-        {"ok": True, "submit": False, "tab_switches": session.tab_switches}
+        {
+            "ok": True,
+            "submit": submit,
+            "tab_switches": session.tab_switches,
+            "time_outside_seconds": session.time_outside_seconds,
+        }
     )
 
 
@@ -145,66 +150,76 @@ def warn(request, session_id):
 def submit_test(request, session_id):
     session = get_object_or_404(UserTestSession, id=session_id, user=request.user)
     if session.finished_at:
+        logger.info(f"User {request.user} tried to resubmit session {session.id}")
         return redirect("tests:test_result", session_id=session.id)
 
-    # Проверяем токен сессии
     token = request.POST.get("client_token")
     if token != session.client_token:
+        logger.warning(
+            f"Invalid session token for user {request.user}, session {session.id}"
+        )
         return HttpResponseForbidden("Invalid session token")
 
     test = session.test
+    logger.info(
+        f"Submitting test '{test.title}' (id={test.id}) for user {request.user}"
+    )
 
-    # Проверка по времени
     if test.duration_minutes:
         allowed = timedelta(minutes=test.duration_minutes) + timedelta(seconds=5)
         if timezone.now() > session.started_at + allowed:
             session.finished_at = timezone.now()
             session.submitted_due_to_violation = True
             session.save(update_fields=["finished_at", "submitted_due_to_violation"])
+            logger.warning(f"User {request.user} submitted late test {session.id}")
             return render(request, "tests/late_submitted.html", {"test": test})
 
-    # Проверка heartbeat
     if session.last_heartbeat and (timezone.now() - session.last_heartbeat) > timedelta(
         seconds=60
     ):
         session.submitted_due_to_violation = True
+        logger.warning(
+            f"User {request.user} session {session.id} flagged due to heartbeat timeout"
+        )
 
-    # Сохраняем ответы
-    questions = test.questions.all()
-    for question in questions:
-        selected_ids = request.POST.getlist(f"q_{question.id}")
+    # Сохраняем ответы пользователя и логируем
+    for question in test.questions.all():
         answer, _ = UserAnswer.objects.get_or_create(session=session, question=question)
-        answer.selected_options.set(AnswerOption.objects.filter(id__in=selected_ids))
+        field_name = f"q_{question.id}"
+        qtype = question.question_type
+
+        if qtype in ("single", "multiple"):
+            selected_ids = request.POST.getlist(field_name)
+            answer.selected_options.set(
+                AnswerOption.objects.filter(id__in=selected_ids)
+            )
+            logger.info(
+                f"User {request.user} answered question {question.id} ({qtype}): {selected_ids}"
+            )
+
+        elif qtype in ("text", "long_text", "number"):
+            text_value = request.POST.get(field_name, "").strip()
+            answer.text_answer = text_value
+            logger.info(
+                f"User {request.user} answered question {question.id} ({qtype}): {text_value}"
+            )
+        elif qtype == "order":
+            order_str = request.POST.get(field_name, "").strip()
+            answer.order_answer = json.loads(order_str) if order_str else []
+            answer.order_answer = [int(x) for x in answer.order_answer]
+            logger.info(
+                f"User {request.user} answered question {question.id} ({qtype}): {order_str}"
+            )
+
         answer.save()
 
     session.finished_at = timezone.now()
-    session.save(
-        update_fields=[
-            "finished_at",
-            "submitted_due_to_violation",
-            "tab_switches",
-            "last_heartbeat",
-            "client_token",
-        ]
+    session.save(update_fields=["finished_at", "submitted_due_to_violation"])
+
+    score, earned_points, total_points = session.calculate_score()
+    logger.info(
+        f"User {request.user} finished test {test.id}: score {earned_points}/{total_points}"
     )
-
-    # Подсчёт результатов
-    correct = 0
-    total = 0
-    for q in questions:
-        if q.question_type in ("single", "multiple", "mixed"):
-            user_ans = session.answers.filter(question=q).first()
-            if not user_ans:
-                continue
-            correct_set = set(
-                q.options.filter(is_correct=True).values_list("id", flat=True)
-            )
-            selected_set = set(user_ans.selected_options.values_list("id", flat=True))
-            if correct_set == selected_set:
-                correct += 1
-            total += 1
-
-    score = int(correct / total * 100) if total > 0 else 0
 
     return render(
         request,
@@ -212,8 +227,8 @@ def submit_test(request, session_id):
         {
             "test": test,
             "score": score,
-            "correct": correct,
-            "total": total,
+            "correct": earned_points,
+            "total": total_points,
             "flagged": session.submitted_due_to_violation,
             "tab_switches": session.tab_switches,
         },
@@ -228,30 +243,8 @@ def test_result(request, session_id):
     if not session.finished_at:
         return redirect("tests:take_test", session_id=session.id)
 
-    total_questions = test.questions.count()
-    correct_answers = 0
-
-    for ans in UserAnswer.objects.filter(session=session):
-        correct_options = set(
-            ans.question.options.filter(is_correct=True).values_list("id", flat=True)
-        )
-        selected = set(ans.selected_options.values_list("id", flat=True))
-        if correct_options == selected:
-            correct_answers += 1
-
-    score_percent = (
-        round((correct_answers / total_questions) * 100, 1) if total_questions else 0
+    return render(
+        request,
+        "tests/test_result.html",
+        {"test": test, "session": session},
     )
-
-    if session.score_percent != score_percent:
-        session.score_percent = score_percent
-        session.save()
-
-    context = {
-        "test": test,
-        "session": session,
-        "correct_answers": correct_answers,
-        "total_questions": total_questions,
-        "score_percent": score_percent,
-    }
-    return render(request, "tests/test_result.html", context)
