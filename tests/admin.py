@@ -98,11 +98,12 @@ class UserTestSessionAdmin(admin.ModelAdmin):
         "test",
         "score_percent",
         "tab_switches",
+        "time_outside_seconds",
         "submitted_due_to_violation",
         "finished_at",
     )
     readonly_fields = ("client_token", "last_heartbeat")
-    list_filter = ("test", "submitted_due_to_violation")
+    list_filter = ("test", "test__groups", "submitted_due_to_violation")
     search_fields = ("user__first_name", "user__last_name", "test__title")
 
     def get_user_full_name(self, obj):
