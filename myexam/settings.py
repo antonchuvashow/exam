@@ -186,7 +186,7 @@ MEDIA_ROOT = BASE_DIR / "media"
 TAILWIND_APP_NAME = "ui"
 
 # Path to the pre-trained model for semantic similarity
-MODEL_PATH = "deepvk/USER2-base"
+MODEL_PATH = "models/USER2-base.onnx"
 
 
 LOGGING = {
