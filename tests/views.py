@@ -193,21 +193,21 @@ def submit_test(request, session_id):
             answer.selected_options.set(
                 AnswerOption.objects.filter(id__in=selected_ids)
             )
-            logger.info(
+            logger.debug(
                 f"User {request.user} answered question {question.id} ({qtype}): {selected_ids}"
             )
 
         elif qtype in ("text", "long_text", "number"):
             text_value = request.POST.get(field_name, "").strip()
             answer.text_answer = text_value
-            logger.info(
+            logger.debug(
                 f"User {request.user} answered question {question.id} ({qtype}): {text_value}"
             )
         elif qtype == "order":
             order_str = request.POST.get(field_name, "").strip()
             answer.order_answer = json.loads(order_str) if order_str else []
             answer.order_answer = [int(x) for x in answer.order_answer]
-            logger.info(
+            logger.debug(
                 f"User {request.user} answered question {question.id} ({qtype}): {order_str}"
             )
 
