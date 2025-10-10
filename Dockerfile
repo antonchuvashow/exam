@@ -15,7 +15,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-WORKDIR /app/ui
-RUN npm install
-
 ENTRYPOINT [ "/app/entrypoint.sh" ]
