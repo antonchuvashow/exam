@@ -147,7 +147,9 @@ class UserAnswer(models.Model):
                 if correct_opt:
                     correct_value = float(correct_opt.text.strip())
                     tolerance = float(q.metadata.get("tolerance", 0.05 * correct_value))
-                    answer_value = float(self.text_answer)
+                    answer_value = float(
+                        self.text_answer if self.text_answer != "" else 0
+                    )
                     if abs(answer_value - correct_value) <= tolerance:
                         score = points
                 logger.debug(f"[number] Q{q.id}: score={score}")

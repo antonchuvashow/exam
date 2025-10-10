@@ -1,29 +1,36 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="max-w-3xl mx-auto py-10">
-    <h1 class="text-3xl font-bold mb-6 text-center">Доступные тесты</h1>
-    <div class="space-y-4">
+<div class="max-w-4xl mx-auto py-10">
+    <h1 class="text-4xl font-bold mb-8 text-center text-gray-800">📝 Доступные тесты</h1>
+
+    <div class="space-y-6">
         {% for test in tests %}
-        <div class="bg-white shadow rounded-xl p-5 flex justify-between items-center hover:bg-gray-50 transition">
-            <div>
-                <h2 class="text-xl font-semibold">{{ test.title }}</h2>
+        <div
+            class="bg-white shadow-md rounded-2xl p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center hover:shadow-lg hover:border-indigo-200 transition border border-gray-100">
+            <div class="flex-1">
+                <h2 class="text-2xl font-semibold text-gray-800 mb-1">{{ test.title }}</h2>
+                {% if test.description %}
+                <p class="text-gray-600 text-sm mb-2">{{ test.description }}</p>
+                {% endif %}
                 <p class="text-gray-500 text-sm">
                     {{ test.question_count }} вопросов
                     {% if test.duration_minutes %}, {{ test.duration_minutes }} мин{% endif %}
                 </p>
             </div>
 
-            {% if test.user_session %}
-            <a href="{% url 'tests:test_result' test.user_session.id %}"
-                class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">
-                Посмотреть результат
-            </a>
-            {% else %}
-            <a href="{% url 'tests:start_test' test.id %}"
-                class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">
-                Начать
-            </a>
-            {% endif %}
+            <div class="mt-4 sm:mt-0 flex-shrink-0">
+                {% if test.user_session %}
+                <a href="{% url 'tests:test_result' test.user_session.id %}"
+                    class="px-5 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 font-medium transition">
+                    Результаты
+                </a>
+                {% else %}
+                <a href="{% url 'tests:start_test' test.id %}"
+                    class="px-5 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 font-medium transition">
+                    Начать
+                </a>
+                {% endif %}
+            </div>
         </div>
         {% empty %}
         <p class="text-gray-500 text-center">Нет доступных тестов.</p>
