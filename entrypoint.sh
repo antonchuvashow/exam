@@ -18,6 +18,6 @@ if [ "$RUN_WEB" = "1" ]; then
     python manage.py runserver 0.0.0.0:8000
 else
     echo "Run Tailwind watcher"
-    npm install
+    python manage.py tailwind init
     python manage.py tailwind start
 fi
