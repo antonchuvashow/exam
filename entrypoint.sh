@@ -2,6 +2,9 @@
 
 # Только для web-контейнера создаём superuser
 if [ "$RUN_WEB" = "1" ]; then
+    python manage.py tailwind install
+    python manage.py tailwind build 
+
     echo "Collect static files"
     python manage.py collectstatic --noinput
 
@@ -15,5 +18,6 @@ if [ "$RUN_WEB" = "1" ]; then
     python manage.py runserver 0.0.0.0:8000
 else
     echo "Run Tailwind watcher"
+    npm install
     python manage.py tailwind start
 fi
