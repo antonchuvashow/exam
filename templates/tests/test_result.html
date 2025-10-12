@@ -1,37 +1,125 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="max-w-3xl mx-auto mt-12 bg-white shadow-lg rounded-2xl p-8 border border-gray-100">
+<div class="max-w-4xl mx-auto pt-10 pb-10">
     <h1 class="text-2xl font-bold mb-6 text-gray-800">{{ test.title }}</h1>
-
+    
     <div class="text-center mb-6">
         <p class="text-gray-600 text-lg mb-2">Ваш результат:</p>
         <p class="text-4xl font-bold text-blue-600">{{ session.score_percent }}%</p>
-        <p class="text-gray-600 mt-2">
-            {{ session.earned_points }} из {{ session.total_points }} баллов
-        </p>
+        <p class="text-gray-600 mt-2">{{ session.earned_points }} из {{ session.total_points }} баллов</p>
     </div>
 
-    {% if session.time_outside_seconds > 0 %}
+    {% if session.tab_switches > 0 %}
     <div class="bg-red-50 border border-red-200 text-red-600 rounded-xl p-4 mb-6">
-        Времени вне страницы: <b>{{ session.time_outside_seconds }}</b> секунд.
-        Нарушения: <b>{{ session.tab_switches }}</b> из допустимых <b>{{ test.max_warnings }}</b>.
+        Времени вне страницы: <b>{{ session.time_outside_seconds }}</b> сек. Нарушения: <b>{{ session.tab_switches }}</b> из <b>{{ test.max_warnings }}</b>.
         {% if session.submitted_due_to_violation %}
-            Тест завершён автоматически из-за превышения лимита нарушений.
+        Тест завершён автоматически из-за превышения лимита нарушений.
         {% endif %}
     </div>
     {% endif %}
 
     {% if session.finished_at %}
-    <p class="text-gray-500 text-sm text-center mb-4">
-        Завершено: {{ session.finished_at|date:"d.m.Y H:i" }}
-    </p>
+    <p class="text-gray-500 text-sm text-center mb-4">Завершено: {{ session.finished_at|date:"d.m.Y H:i" }}</p>
     {% endif %}
 
-    <div class="mt-8 text-center">
-        <a href="/"
-            class="inline-block bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-xl transition">
-            Вернуться на главную
-        </a>
+    {% if test.show_answers %}
+    {% for item in questions_data %}
+    {% with question=item.question user_answer=item.user_answer correct_options=item.correct_options points_scored=item.points_scored %}
+    <div class="bg-white shadow-md rounded-2xl p-6 border border-gray-100 mb-8 hover:border-indigo-200 transition">
+        <p class="font-semibold text-lg mb-3 text-gray-800">
+            {{ forloop.counter }}. {{ question.text }}
+            <span class="text-sm text-gray-500 ml-2">({{ question.points }} б.)</span>
+        </p>
+
+        {% if question.image %}
+        <div class="w-full flex justify-center mb-4">
+            <figure class="w-full sm:w-[80%] md:w-[70%] lg:w-[60%]">
+                <img src="{{ question.image.url }}" class="w-full h-auto rounded-xl border border-gray-200 shadow-sm object-cover" alt="Изображение вопроса">
+                {% if question.image.name %}
+                <figcaption class="text-xs text-gray-500 mt-2 text-center">Изображение к вопросу</figcaption>
+                {% endif %}
+            </figure>
+        </div>
+        {% endif %}
+
+        <!-- Ответ пользователя -->
+        <div class="mb-3">
+            <p class="font-medium text-gray-700 mb-1">Ваш ответ:</p>
+            <div class="bg-gray-50 p-3 rounded border border-gray-200">
+                {% if user_answer %}
+                    {% if question.question_type in "single,multiple" %}
+                        {% for option in user_answer.selected_options.all %}
+                        <div class="flex flex-col sm:flex-row gap-2 mb-1">
+                            {% if option.image %}
+                            <img src="{{ option.image.url }}" class="w-full sm:w-1/2 md:w-1/3 lg:w-1/4 object-cover rounded-md border border-gray-300 mb-2" alt="">
+                            {% endif %}
+                            <span class="text-gray-800">{{ option.text }}</span>
+                        </div>
+                        {% empty %}
+                        <p class="text-gray-500 italic">— Нет ответа —</p>
+                        {% endfor %}
+                    {% elif question.question_type in "text,long_text,number" %}
+                        <span class="text-gray-800">{{ user_answer.text_answer|default:"—" }}</span>
+                    {% elif question.question_type == "order" %}
+                        <ol class="list-decimal list-inside space-y-1">
+                            {% for text in item.user_order_texts %}
+                            <li class="text-gray-800">{{ text }}</li>
+                            {% empty %}
+                            <li class="text-gray-500 italic">— Нет ответа —</li>
+                            {% endfor %}
+                        </ol>
+                    {% endif %}
+                {% else %}
+                    <p class="text-gray-500 italic">— Нет ответа —</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Правильные ответы -->
+        <div class="mb-3">
+            <p class="font-medium text-gray-700 mb-1">Правильный ответ:</p>
+            <div class="bg-green-50 p-3 rounded border border-green-200">
+                {% if question.question_type in "single,multiple,text,long_text,number" %}
+                    {% for correct_option in correct_options %}
+                    <div class="flex flex-col sm:flex-row gap-2 mb-1">
+                        {% if correct_option.image %}
+                        <img src="{{ correct_option.image.url }}" class="w-full sm:w-1/2 md:w-1/3 lg:w-1/4 object-cover rounded-md border border-gray-300 mb-2" alt="">
+                        {% endif %}
+                        <span class="text-green-700 font-semibold">
+                            {{ correct_option.text }}
+                            {% if question.question_type == "number" and question.metadata.tolerance %}
+                            <span class="text-sm text-green-600 ml-2">(допуск: ±{{ question.metadata.tolerance }})</span>
+                            {% endif %}
+                        </span>
+                    </div>
+                    {% empty %}
+                    <p class="text-gray-500 italic">— Проверяется вручную —</p>
+                    {% endfor %}
+                {% elif question.question_type == "order" %}
+                    {% if item.correct_order_texts %}
+                    <ol class="list-decimal list-inside space-y-1">
+                        {% for text in item.correct_order_texts %}
+                        <li class="text-green-700 font-semibold">{{ text }}</li>
+                        {% endfor %}
+                    </ol>
+                    {% else %}
+                    <p class="text-gray-500 italic">— Правильный порядок не задан —</p>
+                    {% endif %}
+                {% else %}
+                <p class="text-gray-500 italic">— Проверяется вручную —</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Баллы -->
+        <div class="flex items-center gap-3 mt-2">
+            <span class="text-indigo-700 font-semibold text-base">
+                Баллы: {{ points_scored }}/{{ question.points }}
+            </span>
+        </div>
     </div>
+    {% endwith %}
+    {% endfor %}
+    {% endif %}
 </div>
 {% endblock %}

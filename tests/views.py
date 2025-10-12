@@ -4,10 +4,10 @@ from datetime import timedelta
 from django.shortcuts import render, get_object_or_404, redirect
 from django.utils import timezone
 from django.contrib.auth.decorators import login_required
-from django.db.models import Count, F
+from django.db.models import Count, Prefetch
 from django.http import JsonResponse, HttpResponseForbidden, HttpResponseBadRequest
 
-from .models import Test, AnswerOption, UserTestSession, UserAnswer, User
+from .models import Test, AnswerOption, UserTestSession, UserAnswer, Question
 
 logger = logging.getLogger(__name__)
 
@@ -132,8 +132,7 @@ def warn(request, session_id):
         or session.time_outside_seconds >= max_outside_seconds
     ):
         session.submitted_due_to_violation = True
-        session.finished_at = now
-        session.save(update_fields=["submitted_due_to_violation", "finished_at"])
+        session.save(update_fields=["submitted_due_to_violation"])
         submit = True
 
     return JsonResponse(
@@ -141,6 +140,7 @@ def warn(request, session_id):
             "ok": True,
             "submit": submit,
             "tab_switches": session.tab_switches,
+            "max_warnings": session.test.max_warnings,
             "time_outside_seconds": session.time_outside_seconds,
         }
     )
@@ -172,7 +172,6 @@ def submit_test(request, session_id):
             session.submitted_due_to_violation = True
             session.save(update_fields=["finished_at", "submitted_due_to_violation"])
             logger.warning(f"User {request.user} submitted late test {session.id}")
-            return render(request, "tests/late_submitted.html", {"test": test})
 
     if session.last_heartbeat and (timezone.now() - session.last_heartbeat) > timedelta(
         seconds=60
@@ -215,36 +214,88 @@ def submit_test(request, session_id):
 
     session.finished_at = timezone.now()
     session.save(update_fields=["finished_at", "submitted_due_to_violation"])
+    for ans in session.answers.all():
+        ans.recalc_points_auto()
+    session.recalc_score_from_answers()
 
-    score, earned_points, total_points = session.calculate_score()
     logger.info(
-        f"User {request.user} finished test {test.id}: score {earned_points}/{total_points}"
+        f"User {request.user} finished test {test.id}: score {session.earned_points}/{session.total_points}"
     )
 
-    return render(
-        request,
-        "tests/result.html",
-        {
-            "test": test,
-            "score": score,
-            "correct": earned_points,
-            "total": total_points,
-            "flagged": session.submitted_due_to_violation,
-            "tab_switches": session.tab_switches,
-        },
-    )
+    return test_result(request, session_id)
 
 
 @login_required
 def test_result(request, session_id):
-    session = get_object_or_404(UserTestSession, id=session_id, user=request.user)
-    test = session.test
+    # Получаем сессию со всеми связанными данными
+    session = UserTestSession.objects.select_related('test', 'user').prefetch_related(
+        Prefetch(
+            'answers',
+            queryset=UserAnswer.objects.select_related('question').prefetch_related('selected_options')
+        )
+    ).get(id=session_id)
 
-    if not session.finished_at:
-        return redirect("tests:take_test", session_id=session.id)
+    all_options = AnswerOption.objects.filter(question__test=session.test).select_related('question')
+    options_dict = {}
+    for option in all_options:
+        if option.question_id not in options_dict:
+            options_dict[option.question_id] = {}
+        options_dict[option.question_id][option.id] = {
+            'text': option.text,
+            'image': option.image
+        }
 
-    return render(
-        request,
-        "tests/test_result.html",
-        {"test": test, "session": session},
-    )
+    questions = session.test.questions.prefetch_related(
+        Prefetch(
+            'options',
+            queryset=AnswerOption.objects.filter(is_correct=True),
+            to_attr='correct_options'
+        )
+    ).all()
+
+    user_answers_dict = {}
+    for answer in session.answers.all():
+        user_answers_dict[answer.question_id] = answer
+
+    # Подготавливаем данные для шаблона
+    questions_data = []
+    for question in questions:
+        user_answer = user_answers_dict.get(question.id)
+        
+        # Для типа "order" преобразуем ID в тексты
+        correct_order_texts = []
+        user_order_texts = []
+        
+        if question.question_type == "order":
+            all_options = list(AnswerOption.objects.filter(question=question).order_by("id"))
+
+            correct_order_indices = question.metadata.get("correct_order", [])
+            user_order_indices = user_answer.order_answer if user_answer else []
+
+            # Преобразуем относительные индексы в тексты
+            correct_order_texts = [
+                all_options[i - 1].text if 0 < i <= len(all_options) else f"#{i}"
+                for i in correct_order_indices
+            ]
+            user_order_texts = [
+                all_options[i - 1].text if 0 < i <= len(all_options) else f"#{i}"
+                for i in user_order_indices
+            ]
+
+                
+        questions_data.append({
+            'question': question,
+            'user_answer': user_answer,
+            'correct_options': question.correct_options,
+            'points_scored': user_answer.points_scored if user_answer else 0,
+            'correct_order_texts': correct_order_texts,
+            'user_order_texts': user_order_texts,
+        })
+
+    context = {
+        'test': session.test,
+        'session': session,
+        'questions_data': questions_data,
+    }
+    
+    return render(request, 'tests/test_result.html', context)

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 {% block content %}
 <!-- Шапка теста (фиксированная сверху) -->
 <div id="test-header" class="fixed top-0 left-0 w-full bg-white shadow-md z-50">
@@ -31,20 +32,29 @@
 <div class="max-w-4xl mx-auto pt-28 pb-10">
     <!-- Форма теста -->
     <form id="test-form" method="post" action="{% url 'tests:submit_test' session.id %}" enctype="multipart/form-data"
-        class="space-y-8">
+        class="space-y-8" data-client-token="{{ session.client_token }}" data-session-id="{{ session.id }}"
+        data-heartbeat-url="{% url 'tests:heartbeat' session.id %}" data-warn-url="{% url 'tests:warn' session.id %}"
+        data-remaining-seconds="{% if remaining_seconds is not None %}{{ remaining_seconds }}{% endif %}">
         {% csrf_token %}
         <input type="hidden" name="client_token" id="client_token" value="{{ session.client_token }}">
 
         {% for q in questions %}
         <div
             class="bg-white shadow-md rounded-2xl p-6 border border-gray-100 hover:border-indigo-200 hover:shadow-lg transition duration-300">
-            <div class="flex flex-col sm:flex-row items-start gap-6">
-                {% if q.image %}
-                <img src="{{ q.image.url }}" class="w-40 h-40 object-cover rounded-xl border border-gray-200"
-                    alt="Изображение вопроса">
-                {% endif %}
-
+            <div class="flex flex-col md:flex-row items-start gap-6">
                 <div class="flex-1">
+                    {% if q.image %}
+                    <div class="w-full flex justify-center">
+                        <figure class="w-full sm:w-[80%] md:w-[70%] lg:w-[60%]">
+                            <img src="{{ q.image.url }}" class="w-full h-auto rounded-xl border border-gray-200 shadow-sm object-cover"
+                                alt="Изображение вопроса">
+                            {% if q.image.name %}
+                            <figcaption class="text-xs text-gray-500 mt-2 text-center">Изображение к вопросу</figcaption>
+                            {% endif %}
+                        </figure>
+                    </div>
+                    {% endif %}
+
                     <p class="font-semibold text-lg mb-3 text-gray-800">
                         {{ forloop.counter }}. {{ q.text }}
                         <span class="text-sm text-gray-500 ml-2">({{ q.points }} б.)</span>
@@ -54,34 +64,39 @@
                     {% if q.question_type == "single" %}
                     <div class="space-y-2">
                         {% for opt in q.options.all %}
-                        <label
-                            class="flex items-center space-x-3 p-3 rounded-lg border border-gray-200 hover:bg-indigo-50 cursor-pointer transition">
-                            <input type="radio" name="q_{{ q.id }}" value="{{ opt.id }}"
-                                class="accent-indigo-600 w-5 h-5 focus:ring-indigo-500 focus:ring-offset-1">
+                        <div>
+                        <input type="radio" id="opt_{{ opt.id }}" name="q_{{ q.id }}" value="{{ opt.id }}" class="peer hidden" />
+                        <label for="opt_{{ opt.id }}" class="block p-3 rounded-lg border border-gray-200 cursor-pointer transition hover:border-indigo-300
+                                 peer-checked:border-indigo-500 peer-checked:bg-indigo-50 peer-checked:text-indigo-700">
                             {% if opt.image %}
-                            <img src="{{ opt.image.url }}"
-                                class="w-16 h-16 object-cover rounded-md border border-gray-300" alt="">
+                            <img src="{{ opt.image.url }}" alt=""
+                                class="w-full sm:w-1/2 md:w-1/3 lg:w-1/4 object-cover rounded-md border border-gray-300 mb-2">
                             {% endif %}
                             <span class="text-gray-700">{{ opt.text }}</span>
                         </label>
+                        </div>
                         {% endfor %}
                     </div>
 
                     {% elif q.question_type == "multiple" %}
                     <div class="space-y-2">
                         {% for opt in q.options.all %}
-                        <label
-                            class="flex items-center space-x-3 p-3 rounded-lg border border-gray-200 hover:bg-indigo-50 cursor-pointer transition">
-                            <input type="checkbox" name="q_{{ q.id }}" value="{{ opt.id }}"
-                                class="accent-indigo-600 w-5 h-5 focus:ring-indigo-500 focus:ring-offset-1">
+                        <div>
+                        <input type="checkbox" id="opt_{{ opt.id }}" name="q_{{ q.id }}" value="{{ opt.id }}" class="peer hidden" />
+                        <label for="opt_{{ opt.id }}" class="block p-3 rounded-lg border border-gray-200 cursor-pointer transition hover:border-indigo-300
+                                 peer-checked:border-indigo-500 peer-checked:bg-indigo-50 peer-checked:text-indigo-700">
                             {% if opt.image %}
-                            <img src="{{ opt.image.url }}"
-                                class="w-16 h-16 object-cover rounded-md border border-gray-300" alt="">
+                            <img src="{{ opt.image.url }}" alt=""
+                                class="w-full sm:w-1/2 md:w-1/3 lg:w-1/4 object-cover rounded-md border border-gray-300 mb-2">
                             {% endif %}
                             <span class="text-gray-700">{{ opt.text }}</span>
                         </label>
+                        </div>
                         {% endfor %}
                     </div>
+
+
+
 
                     {% elif q.question_type == "text" %}
                     <input type="text" name="q_{{ q.id }}" placeholder="Введите короткий ответ"
@@ -97,7 +112,7 @@
 
                     {% elif q.question_type == "order" %}
                     <div class="space-y-2">
-                        <ul id="order_{{ q.id }}" class="list-none p-0">
+                        <ul id="order_{{ q.id }}" class="order-list list-none p-0 space-y-2" data-order-input-id="order_input_{{ q.id }}">
                             {% for opt in q.options.all %}
                             <li class="bg-gray-100 p-3 rounded-lg border border-gray-200 cursor-pointer hover:bg-indigo-50 transition relative"
                                 data-option-id="{{ opt.id }}">
@@ -120,124 +135,11 @@
         <!-- Кнопка отправки -->
         <div class="pt-4">
             <button type="submit" id="submit-button"
-                class="w-full bg-indigo-600 text-white py-3.5 rounded-xl text-lg font-semibold shadow-md hover:bg-indigo-700 hover:shadow-lg active:scale-[0.98] transition">
+                class="w-1/2 bg-indigo-600 text-white py-3.5 rounded-xl text-lg font-semibold shadow-md hover:bg-indigo-700 hover:shadow-lg active:scale-[0.98] transition">
                 Отправить ответы
             </button>
         </div>
     </form>
 </div>
-
-<script>
-document.addEventListener("DOMContentLoaded", function() {
-    {% for q in questions %}
-    {% if q.question_type == "order" %}
-    const list = document.getElementById("order_{{ q.id }}");
-    const input = document.getElementById("order_input_{{ q.id }}");
-    let order = [];
-
-    list.querySelectorAll("li").forEach(item => {
-        item.addEventListener("click", () => {
-            const optionId = item.dataset.optionId;
-
-            if (order.includes(optionId)) return;
-
-            order.push(optionId);
-
-            const numberEl = item.querySelector(".order-number");
-            numberEl.textContent = order.length;
-            numberEl.classList.remove("hidden");
-
-            input.value = JSON.stringify(order);
-        });
-    });
-
-    const resetBtn = document.createElement("button");
-    resetBtn.type = "button";
-    resetBtn.textContent = "Сбросить порядок";
-    resetBtn.className = "mt-2 px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 text-sm";
-    resetBtn.addEventListener("click", () => {
-        order = [];
-        input.value = "";
-        list.querySelectorAll(".order-number").forEach(span => span.classList.add("hidden"));
-    });
-    list.after(resetBtn);
-    {% endif %}
-    {% endfor %}
-});
-
-(function() {
-  // helper: CSRF cookie
-  function getCookie(name) {
-    const v = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
-    return v ? v.pop() : '';
-  }
-  const csrftoken = getCookie('csrftoken');
-
-  const sessionId = "{{ session.id }}";
-  const clientToken = document.getElementById("client_token").value;
-  const maxWarnings = {{ test.max_warnings|default:3 }};
-  const warningEl = document.getElementById("warning-count");
-  const timerEl = document.getElementById("timer");
-  const form = document.getElementById("test-form");
-
-  // оставшееся время, полученное с сервера (в секундах)
-  let remaining = {% if remaining_seconds is not None %}{{ remaining_seconds }}{% else %}null{% endif %};
-
-  // безопасный fetch wrapper (POST JSON)
-  function postJson(url, payload) {
-    return fetch(url, {
-      method: "POST",
-      credentials: "same-origin",
-      headers: {
-        "Content-Type": "application/json",
-        "X-CSRFToken": csrftoken
-      },
-      body: JSON.stringify(payload)
-    }).then(r => r.json());
-  }
-
-  // Таймер
-  let timerInterval = null;
-  if (remaining !== null) {
-    function updateTimerDisplay() {
-      if (remaining <= 0) {
-        clearInterval(timerInterval);
-        // автосабмит
-        form.submit();
-        return;
-      }
-      const m = Math.floor(remaining / 60);
-      const s = remaining % 60;
-      timerEl.textContent = `${m}:${String(s).padStart(2,'0')}`;
-      remaining--;
-    }
-    updateTimerDisplay();
-    timerInterval = setInterval(updateTimerDisplay, 1000);
-  }
-
-  // Heartbeat — каждые 10 секунд уведомляем сервер
-  const heartbeatUrl = "{% url 'tests:heartbeat' session.id %}";
-  const warnUrl = "{% url 'tests:warn' session.id %}";
-  let heartbeatTimer = setInterval(() => {
-    postJson(heartbeatUrl, { token: clientToken }).catch(() => {
-      // если heartbeat падает — пометка в консоль, но сервер всё равно проверит при submit
-      console.warn("heartbeat failed");
-    });
-  }, 10000);
-
-    function sendWarn(action) {
-        postJson(warnUrl, { token: clientToken, action: action })
-            .then(data => {
-                warningEl.textContent =
-                    `⚠️ Нарушения: ${data.tab_switches} из ${maxWarnings}, вне страницы: ${data.time_outside_seconds} сек`;
-                if (data.submit) setTimeout(() => form.submit(), 300);
-            });
-    }
-
-    document.addEventListener("visibilitychange", () => {
-        if (document.hidden) sendWarn("blur");
-        else sendWarn("focus");
-    });
-})();
-</script>
+<script src="{% static 'js/test-page.js' %}" defer></script>
 {% endblock %}
