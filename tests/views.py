@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 def test_list(request):
     user_groups = request.user.groups.all()
     tests = Test.objects.filter(groups__in=user_groups).annotate(
-        question_count=Count("questions")
+        question_count=Count("questions", distinct=True)
     )
     user_sessions = UserTestSession.objects.filter(
         user=request.user, finished_at__isnull=False
