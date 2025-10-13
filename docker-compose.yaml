@@ -51,6 +51,7 @@ services:
       - media_volume:/app/media
       - /etc/letsencrypt/live/${CERT_DOMAIN}/fullchain.pem:/app/certs/fullchain.pem
       - /etc/letsencrypt/live/${CERT_DOMAIN}/privkey.pem:/app/certs/privkey.pem
+      - /etc/letsencrypt/archive/:/etc/letsencrypt/archive/
     depends_on:
       - web
 
