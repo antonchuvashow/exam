@@ -16,8 +16,6 @@ services:
     <<: *default-app
     depends_on:
       - db
-    env_file:
-      - .env
     environment:
       RUN_WEB: "1"
     volumes:
@@ -51,6 +49,8 @@ services:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
       - static_volume:/app/staticfiles
       - media_volume:/app/media
+      - /etc/letsencrypt/live/${CERT_DOMAIN}/fullchain.pem:/app/certs/fullchain.pem
+      - /etc/letsencrypt/live/${CERT_DOMAIN}/privkey.pem:/app/certs/privkey.pem
     depends_on:
       - web
 
