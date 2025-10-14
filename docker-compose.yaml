@@ -42,12 +42,12 @@ services:
 
   nginx:
     image: nginx:alpine
-    command: /bin/sh -c "envsubst < /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"
+    command: ""
     restart: always
     ports:
       - "22092:22092"
     volumes:
-      - ./nginx/default.conf.template:/etc/nginx/conf.d/default.conf.template:ro
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
       - static_volume:/app/staticfiles
       - media_volume:/app/media
       - /etc/letsencrypt:/etc/letsencrypt:ro
