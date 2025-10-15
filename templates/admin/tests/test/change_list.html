@@ -1,7 +1,5 @@
 {% extends "admin/change_list.html" %}
 {% block object-tools-items %}
 {{ block.super }}
-<li>
-    <a href="{% url 'admin:tests_test_import_json' %}" class="addlink">📥 Импортировать тест из JSON</a>
-</li>
+<a href="{% url 'admin:tests_test_import_json' %}" class="btn btn-success float-right addlink">📥 Импортировать тест из JSON</a>
 {% endblock %}
