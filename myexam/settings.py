@@ -37,11 +37,15 @@ CSRF_TRUSTED_ORIGINS = [
     url.strip() for url in os.getenv("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",") if url.strip()
 ]
 
+ACCOUNT_DEFAULT_HTTP_PROTOCOL = "https"
 
 
 # Application definition
 
 INSTALLED_APPS = [
+    "myexam.apps.MyExamConfig",
+    "django.contrib.sites",
+    "jazzmin",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
