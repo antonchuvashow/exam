@@ -1,4 +1,4 @@
-from allauth.socialaccount.forms import SignupForm
+from allauth.socialaccount.forms import SignupForm as SignupForm
 from django import forms
 from django.contrib.auth.models import Group
 from django.utils.translation import gettext_lazy as _

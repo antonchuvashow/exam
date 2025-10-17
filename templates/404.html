@@ -1,0 +1,38 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Страница не найдена</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="{% static 'css/dist/styles.css' %}" rel="stylesheet">
+</head>
+
+<body class="bg-gradient-to-br from-gray-100 to-gray-200 min-h-screen flex items-center justify-center font-sans">
+
+    <div class="text-center px-4">
+        <!-- Большой номер ошибки -->
+        <h1 class="text-9xl font-extrabold text-indigo-600 animate-pulse">404</h1>
+
+        <!-- Сообщение -->
+        <h2 class="text-3xl sm:text-4xl font-bold text-gray-800 mt-6">Упс! Страница не найдена</h2>
+        <p class="text-gray-600 mt-2 mb-6">Кажется, вы потерялись. Запрошенная страница не существует или была
+            перемещена.</p>
+
+        <!-- Кнопка возврата -->
+        <a href="{% url 'home' %}"
+            class="inline-block px-6 py-3 bg-indigo-600 text-white font-semibold rounded-xl shadow-md hover:bg-indigo-700 hover:shadow-lg transition transform hover:-translate-y-1">
+            Вернуться на главную
+        </a>
+
+        <!-- Символический декор -->
+        <div class="mt-10 relative">
+            <img src="{% static 'images/404-illustration.svg' %}" alt="Not found illustration"
+                class="mx-auto w-64 sm:w-96 opacity-70 animate-bounce">
+        </div>
+    </div>
+
+</body>
+
+</html>

@@ -1,23 +1,21 @@
 {% extends "base.html" %}
 {% load widget_tweaks %}
+
 {% block content %}
 <div class="min-h-screen flex items-center justify-center bg-gray-100 py-12 px-4 sm:px-6 lg:px-8">
     <div class="max-w-md w-full bg-white shadow-lg rounded-2xl p-8 space-y-6">
         <div class="text-center">
             <h2 class="mt-2 text-3xl font-extrabold text-gray-900">
-                Завершите регистрацию
+                Регистрация
             </h2>
             <p class="mt-2 text-sm text-gray-600">
-                Подтвердите свои данные для завершения регистрации через Google
+                Создайте аккаунт, чтобы получить доступ к тестам
             </p>
         </div>
-
-        {% url 'socialaccount_signup' as action_url %}
-        <form class="mt-8 space-y-6" method="post">
+        
+        {% url 'account_signup' as action_url %}
+        <form class="mt-8 space-y-6" method="post" action="{{ action_url }}">
             {% csrf_token %}
-            {{ form.username }}
-            {{ form.password1 }}
-            {{ form.password2 }}
 
             <!-- Общие ошибки формы -->
             {% if form.non_field_errors %}
@@ -48,11 +46,11 @@
                 {% endfor %}
             </div>
 
-            <!-- Email (readonly) -->
+            <!-- username -->
             <div>
-                <label for="{{ form.email.id_for_label }}" class="block text-sm font-medium text-gray-700">Email</label>
-                {{ form.email|add_class:"mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"|attr:"readonly" }}
-                {% for error in form.email.errors %}
+                <label for="{{ form.username.id_for_label }}" class="block text-sm font-medium text-gray-700">Имя Пользователя</label>
+                {{ form.username|add_class:"mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" }}
+                {% for error in form.username.errors %}
                 <p class="text-red-500 text-sm mt-1">{{ error }}</p>
                 {% endfor %}
             </div>
@@ -66,12 +64,38 @@
                 {% endfor %}
             </div>
 
+            <!-- Пароль -->
+            <div>
+                <label for="{{ form.password1.id_for_label }}" class="block text-sm font-medium text-gray-700">Пароль</label>
+                {{ form.password1|add_class:"mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" }}
+                {% for error in form.password1.errors %}
+                <p class="text-red-500 text-sm mt-1">{{ error }}</p>
+                {% endfor %}
+            </div>
+
+            <!-- Подтверждение пароля -->
+            <div>
+                <label for="{{ form.password2.id_for_label }}" class="block text-sm font-medium text-gray-700">Подтверждение пароля</label>
+                {{ form.password2|add_class:"mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" }}
+                {% for error in form.password2.errors %}
+                <p class="text-red-500 text-sm mt-1">{{ error }}</p>
+                {% endfor %}
+            </div>
+
+            <!-- Кнопка -->
             <div>
                 <button type="submit"
                     class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-200">
-                    Завершить регистрацию
+                    Зарегистрироваться
                 </button>
             </div>
+
+            <p class="text-center text-sm text-gray-500 mt-4">
+                Уже есть аккаунт? 
+                <a href="{% url 'account_login' %}" class="text-indigo-600 hover:text-indigo-800 font-medium">
+                    Войти
+                </a>
+            </p>
         </form>
     </div>
 </div>

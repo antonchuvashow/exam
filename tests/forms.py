@@ -76,66 +76,85 @@ class TestImportForm(forms.Form):
         label="JSON-тест",
         widget=forms.Textarea(attrs={"rows": 20, "cols": 100}),
         initial="""{
-  "title": "Полный пример теста",
-  "description": "Тест демонстрирует все виды вопросов.",
-  "duration_minutes": 15,
+  "title": "Пример теста со всеми видами вопросов",
+  "description": "Описание теста, должно в себя включать полезную информацию для тестируемых",
+  "duration_minutes": 20,
   "max_warnings": 3,
   "show_answers": true,
   "questions": [
     {
-      "text": "Какой язык мы используем?",
+      "text": "Какой язык мы используем для этого теста?",
       "question_type": "single",
       "points": 1,
       "options": [
         {"text": "Python", "is_correct": true},
         {"text": "Java", "is_correct": false},
-        {"text": "C++", "is_correct": false}
+        {"text": "C++", "is_correct": false},
+        {"text": "JavaScript", "is_correct": false}
       ]
     },
     {
       "text": "Выберите правильные утверждения о Python:",
       "question_type": "multiple",
-      "points": 2,
+      "points": 3,
       "options": [
         {"text": "Python — интерпретируемый язык", "is_correct": true},
-        {"text": "Python компилируется в байт-код", "is_correct": true},
-        {"text": "Python — строго типизированный язык", "is_correct": false}
-      ]
+        {"text": "Python компилируется в байт-код (интерпретатор создаёт байт-код)", "is_correct": true},
+        {"text": "Python строго типизированный язык", "is_correct": false},
+        {"text": "Python поддерживает многопоточность (GIL ограничивает параллелизм в CPython)", "is_correct": true},
+        {"text": "Python нельзя использовать для веб-разработки", "is_correct": false}
+      ],
+      "metadata": {
+        "partial_scoring": true
+      }
     },
     {
-      "text": "Напишите короткий ответ: кто создал Python?",
+      "text": "Кто создал язык Python?",
       "question_type": "text",
       "points": 1,
       "options": [
         {"text": "Guido van Rossum", "is_correct": true},
-        {"text": "Гудио Ван Россум", "is_correct": true},
+        {"text": "Гвидо ван Россум", "is_correct": true},
         {"text": "Не знаю", "is_correct": false}
       ],
       "metadata": {
-        "semantic_threshold": 0.8
-      }
-    },
-    {
-      "text": "Развёрнутый ответ: опишите особенности Python",
-      "question_type": "long_text",
-      "points": 3,
-      "options": [
-        {"text": "Python — это высокоуровневый язык с динамической типизацией и интерпретацией.", "is_correct": true},
-        {"text": "Python удобен для быстрого прототипирования и научных вычислений.", "is_correct": true},
-        {"text": "Не знаю", "is_correct": false}
-      ],
-      "metadata": {
-        "semantic_threshold": 0.7,
-        "full_credit_threshold": 0.99,
-        "incorrect_threshold": 0.95,
-        "penalty_weight": 1,
+        "semantic_threshold": 0.65,
+        "full_credit_threshold": 0.92,
+        "incorrect_threshold": 0.90,
+        "penalty_weight": 1.0,
         "correction_factor": 0.6,
-        "add_back_weight": 0.2,
-        "min_partial": 0.0
+        "min_partial": 0.6,
+        "topk_incorrect": 3,
+        "aspect_weight": 0.3,
+        "length_penalty_min_ratio": 0.4
       }
     },
     {
-      "text": "Введите число: сколько байт занимает тип int в Python?",
+      "text": "Опишите ключевые особенности языка Python",
+      "question_type": "long_text",
+      "points": 4,
+      "options": [
+        {"text": "Высокоуровневый, интерпретируемый язык с динамической типизацией.", "is_correct": true},
+        {"text": "Отлично подходит для прототипирования, анализа данных и научных вычислений.", "is_correct": true},
+        {"text": "Поддерживает ООП и функциональные возможности.", "is_correct": true},
+        {"text": "Синтаксис прост и читаем.", "is_correct": true},
+        {"text": "Низкоуровневый компилируемый язык.", "is_correct": false},
+        {"text": "Предназначен только для мобильных приложений.", "is_correct": false}
+      ],
+      "metadata": {
+        "semantic_threshold": 0.60,
+        "full_credit_threshold": 0.92,
+        "incorrect_threshold": 0.90,
+        "penalty_weight": 1.0,
+        "correction_factor": 0.6,
+        "min_partial": 0.6,
+        "topk_incorrect": 3,
+        "aspect_weight": 0.6,
+        "length_penalty_min_ratio": 0.5
+      }
+    },
+    {
+      "text": "Сколько байт обычно занимает тип int в Python (32-битная архитектура)?",
       "question_type": "number",
       "points": 1,
       "options": [
@@ -146,16 +165,18 @@ class TestImportForm(forms.Form):
       }
     },
     {
-      "text": "Упорядочите шаги: как запустить Python скрипт",
+      "text": "Упорядочите шаги для запуска Python скрипта (подразумевается, что Python ещё не установлен на системе):",
       "question_type": "order",
-      "points": 2,
+      "points": 3,
       "options": [
+        {"text": "Установите Python, если он не установлен"},
         {"text": "Откройте терминал"},
         {"text": "Перейдите в каталог с файлом"},
         {"text": "Выполните команду python filename.py"}
       ],
       "metadata": {
-        "correct_order": [1, 2, 3]
+        "correct_order": [1, 2, 3, 4],
+        "allow_partial": true
       }
     }
   ]
@@ -163,4 +184,3 @@ class TestImportForm(forms.Form):
 
 """
     )
-

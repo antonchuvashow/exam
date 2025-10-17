@@ -1,6 +1,6 @@
 from django.db import models
 from django.contrib.auth import get_user_model
-from .utils import semantic_similarity
+from .utils.scoring import score_open_answer
 import secrets
 import logging
 
@@ -207,89 +207,35 @@ class UserAnswer(models.Model):
                     logger.debug(f"[text] Q{q.id}: пустой ответ -> 0")
                     return self.points_scored
 
-                # Собираем эталоны и "ложные" варианты
-                correct_texts = [opt.text.strip() for opt in q.options.filter(is_correct=True) if opt.text]
-                incorrect_texts = [opt.text.strip() for opt in q.options.filter(is_correct=False) if opt.text]
+                correct_texts = [opt.text.strip() for opt in q.options.filter(is_correct=True) if opt.text and opt.text.strip()]
+                incorrect_texts = [opt.text.strip() for opt in q.options.filter(is_correct=False) if opt.text and opt.text.strip()]
 
-                if not correct_texts:
-                    logger.info(f"[text] Q{q.id}: нет эталонов -> 0")
+                try:
+                    score = score_open_answer(
+                        question_text=q.text,
+                        user_ans=user_ans,
+                        correct_texts=correct_texts,
+                        incorrect_texts=incorrect_texts,
+                        points=points,
+                        threshold=float(q.metadata.get("semantic_threshold", 0.65)),
+                        full_credit_threshold=float(q.metadata.get("full_credit_threshold", 0.92)),
+                        incorrect_threshold=float(q.metadata.get("incorrect_threshold", 0.92)),
+                        penalty_weight=float(q.metadata.get("penalty_weight", 1.0)),
+                        correction_factor=float(q.metadata.get("correction_factor", 0.6)),
+                        min_partial=float(q.metadata.get("min_partial", 0.0)),
+                        topk_incorrect=int(q.metadata.get("topk_incorrect", 3)),
+                        aspect_weight=float(q.metadata.get("aspect_weight", 0.5)),
+                        length_penalty_min_ratio=float(q.metadata.get("length_penalty_min_ratio", 0.35)),
+                    )
+                    self.points_scored = score
+                except Exception as e:
+                    logger.exception(f"Ошибка при семантической оценке Q{q.id}: {e}")
+                    # fallback на нулевой балл, чтобы не ломать систему
                     self.points_scored = 0
-                    self.save(update_fields=["points_scored"])
-                    return self.points_scored
-
-                # Параметры (перекрытие в metadata)
-                threshold = float(q.metadata.get("semantic_threshold", 0.7))
-                full_credit_threshold = float(q.metadata.get("full_credit_threshold", 0.99))
-                incorrect_threshold = float(q.metadata.get("incorrect_threshold", 0.95))  # очень близко к неверному -> 0
-                penalty_weight = float(q.metadata.get("penalty_weight", 1.0))
-                correction_factor = float(q.metadata.get("correction_factor", 0.6))   # насколько "снимаем" влияние u_inc если эталоны похожи на неверные
-                add_back_weight = float(q.metadata.get("add_back_weight", 0.2))       # сколько добавляем от c_inc к нормированной оценке
-                min_partial = float(q.metadata.get("min_partial", 0.0))              # минимальная частичная оценка
-
-                # Вспомогательная функция сходства 
-                def sim(a, b, contextual=False):
-                    if contextual:
-                        a = f"Q: {q.text}\nA: {a}"
-                        b = f"Q: {q.text}\nA: {b}"
-                    return semantic_similarity(a, b)
-
-                sim_user_incorrect = max((sim(user_ans, inc, contextual=False) for inc in incorrect_texts), default=0.0)
-
-                # Если пользователь очень точно совпадает с явным неверным вариантом — 0 сразу
-                if sim_user_incorrect >= incorrect_threshold:
-                    self.points_scored = 0
-                    logger.debug(
-                        f"[text] Q{q.id}: слишком похож на неверный (user_incorrect={sim_user_incorrect:.2f} >= {incorrect_threshold}) -> 0"
-                    )
-                    self.save(update_fields=["points_scored"])
-                    return self.points_scored
-
-                sim_correct_ctx = max((sim(user_ans, corr, contextual=True) for corr in correct_texts), default=0.0)
-
-                # Сходство между верными и неверными
-                sim_correct_to_incorrect = 0.0
-                if incorrect_texts:
-                    sim_correct_to_incorrect = max(
-                        (sim(c, inc, contextual=False) for c in correct_texts for inc in incorrect_texts),
-                        default=0.0,
-                    )
-
-                # Если контекстное совпадение с эталоном достаточно высоко — даём полный балл
-                if sim_correct_ctx >= full_credit_threshold:
-                    self.points_scored = points
-                    logger.debug(
-                        f"[text] Q{q.id}: sim_correct_ctx={sim_correct_ctx:.2f} >= full_credit_threshold={full_credit_threshold} -> full {points}"
-                    )
-                    self.save(update_fields=["points_scored"])
-                    return self.points_scored
-
-                # Нормируем sim_correct_ctx относительно порога
-                eff_floor = max(threshold, min(0.95, sim_correct_to_incorrect * 0.8))  # если эталоны очень похожи на неверные, поднимаем floor
-                denom = (1.0 - eff_floor) if (1.0 - eff_floor) > 1e-6 else 1e-6
-                baseline_norm = max(0.0, (sim_correct_ctx - eff_floor) / denom)
-                add_back = sim_correct_to_incorrect * add_back_weight
-
-                raw = min(1.0, baseline_norm + add_back)  # предварительный множитель в [0,1]
-
-                # Скорректированная близость к неверным
-                adjusted_incorrect = max(0.0, sim_user_incorrect - sim_correct_to_incorrect * correction_factor)
-                penalty = min(1.0, adjusted_incorrect * penalty_weight)
-
-                final_factor = max(0.0, raw * (1.0 - penalty))
-                if final_factor > 0 and min_partial > 0:
-                    final_factor = max(final_factor, min_partial)
-
-                self.points_scored = round(points * final_factor, 2)
-
-                logger.debug(
-                    f"[text] Q{q.id}: sim_correct_ctx={sim_correct_ctx:.3f}, sim_user_incorrect={sim_user_incorrect:.3f}, "
-                    f"sim_corr_inc={sim_correct_to_incorrect:.3f}, eff_floor={eff_floor:.3f}, baseline_norm={baseline_norm:.3f}, "
-                    f"add_back={add_back:.3f}, raw={raw:.3f}, adjusted_incorrect={adjusted_incorrect:.3f}, penalty={penalty:.3f}, "
-                    f"final_factor={final_factor:.3f}, score={self.points_scored}"
-                )
 
                 self.save(update_fields=["points_scored"])
                 return self.points_scored
+
 
 
         except Exception as e:

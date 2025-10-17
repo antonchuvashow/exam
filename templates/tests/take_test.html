@@ -1,145 +1,123 @@
 {% extends "base.html" %}
 {% load static %}
 {% block content %}
-<!-- Шапка теста (фиксированная сверху) -->
-<div id="test-header" class="fixed top-0 left-0 w-full bg-white shadow-md z-50">
-    <div
-        class="max-w-4xl mx-auto py-3 px-4 sm:px-6 flex flex-col sm:flex-row justify-between gap-3 sm:gap-6">
-        <!-- Заголовок теста -->
-        <div class="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-2">
-            <h1 class="text-lg sm:text-2xl font-bold text-gray-800 truncate max-w-[200px] sm:max-w-[400px]">
-                {{ test.title }}
-            </h1>
-            {% if test.questions.count %}
-            <span class="text-gray-500 text-sm sm:text-base">({{ test.questions.count }} вопросов)</span>
-            {% endif %}
-        </div>
 
-        <!-- Таймер и предупреждения -->
-        <div class="flex items-left gap-4 sm:gap-6">
+<!-- Шапка теста (стеклянная, фиксированная) -->
+<header id="test-header"
+    class="fixed top-[70px] left-0 w-full z-40 backdrop-blur-md bg-white/70 border-b border-gray-200/60 shadow-sm transition-all duration-300">
+    <div class="max-w-5xl mx-auto px-6 py-4 flex flex-col sm:flex-row justify-between gap-3 sm:gap-6 items-center">
+        <div class="flex items-center gap-4">
             {% if remaining_seconds is not None %}
             <div id="timer"
-                class="text-base sm:text-lg font-semibold text-indigo-700 bg-indigo-100 px-3 py-1 rounded-lg shadow-sm min-w-[60px] text-center">
+                class="text-lg font-semibold text-indigo-700 bg-indigo-50/80 px-4 py-1.5 rounded-lg border border-indigo-200 shadow-sm min-w-[70px] text-center">
             </div>
             {% endif %}
-            <div id="warning-count"
-                class="text-red-600 font-medium text-sm sm:text-base animate-pulse break-words">
-            </div>
+            <div id="warning-count" class="text-red-600 font-medium text-sm sm:text-base animate-pulse"></div>
         </div>
     </div>
-</div>
+</header>
 
-<div class="max-w-4xl mx-auto pt-28 pb-10">
-    <!-- Форма теста -->
+<!-- Контент -->
+<main class="max-w-5xl mx-auto pt-[50px] pb-20 px-4 sm:px-6">
+    <div class="flex flex-col sm:flex-row items-center gap-2">
+        <h1 class="text-xl sm:text-2xl font-semibold text-gray-900 truncate max-w-[240px] sm:max-w-[400px]">
+            {{ test.title }}
+        </h1>
+    </div>
     <form id="test-form" method="post" action="{% url 'tests:submit_test' session.id %}" enctype="multipart/form-data"
-        class="space-y-8" data-client-token="{{ session.client_token }}" data-session-id="{{ session.id }}"
+        class="space-y-10" data-client-token="{{ session.client_token }}" data-session-id="{{ session.id }}"
         data-heartbeat-url="{% url 'tests:heartbeat' session.id %}" data-warn-url="{% url 'tests:warn' session.id %}"
         data-remaining-seconds="{% if remaining_seconds is not None %}{{ remaining_seconds }}{% endif %}">
         {% csrf_token %}
         <input type="hidden" name="client_token" id="client_token" value="{{ session.client_token }}">
 
         {% for q in questions %}
-        <div
-            class="bg-white shadow-md rounded-2xl p-6 border border-gray-100 hover:border-indigo-200 hover:shadow-lg transition duration-300">
-            <div class="flex flex-col md:flex-row items-start gap-6">
-                <div class="flex-1">
-                    {% if q.image %}
-                    <div class="w-full flex justify-center">
-                        <figure class="w-full sm:w-[80%] md:w-[70%] lg:w-[60%]">
-                            <img src="{{ q.image.url }}" class="w-full h-auto rounded-xl border border-gray-200 shadow-sm object-cover"
-                                alt="Изображение вопроса">
-                            {% if q.image.name %}
-                            <figcaption class="text-xs text-gray-500 mt-2 text-center">Изображение к вопросу</figcaption>
-                            {% endif %}
-                        </figure>
-                    </div>
-                    {% endif %}
-
-                    <p class="font-semibold text-lg mb-3 text-gray-800">
-                        {{ forloop.counter }}. {{ q.text }}
-                        <span class="text-sm text-gray-500 ml-2">({{ q.points }} б.)</span>
-                    </p>
-
-
-                    {% if q.question_type == "single" %}
-                    <div class="space-y-2">
-                        {% for opt in q.options.all %}
-                        <div>
-                        <input type="radio" id="opt_{{ opt.id }}" name="q_{{ q.id }}" value="{{ opt.id }}" class="peer hidden" />
-                        <label for="opt_{{ opt.id }}" class="block p-3 rounded-lg border border-gray-200 cursor-pointer transition hover:border-indigo-300
-                                 peer-checked:border-indigo-500 peer-checked:bg-indigo-50 peer-checked:text-indigo-700">
-                            {% if opt.image %}
-                            <img src="{{ opt.image.url }}" alt=""
-                                class="w-full sm:w-1/2 md:w-1/3 lg:w-1/4 object-cover rounded-md border border-gray-300 mb-2">
-                            {% endif %}
-                            <span class="text-gray-700">{{ opt.text }}</span>
-                        </label>
-                        </div>
-                        {% endfor %}
-                    </div>
-
-                    {% elif q.question_type == "multiple" %}
-                    <div class="space-y-2">
-                        {% for opt in q.options.all %}
-                        <div>
-                        <input type="checkbox" id="opt_{{ opt.id }}" name="q_{{ q.id }}" value="{{ opt.id }}" class="peer hidden" />
-                        <label for="opt_{{ opt.id }}" class="block p-3 rounded-lg border border-gray-200 cursor-pointer transition hover:border-indigo-300
-                                 peer-checked:border-indigo-500 peer-checked:bg-indigo-50 peer-checked:text-indigo-700">
-                            {% if opt.image %}
-                            <img src="{{ opt.image.url }}" alt=""
-                                class="w-full sm:w-1/2 md:w-1/3 lg:w-1/4 object-cover rounded-md border border-gray-300 mb-2">
-                            {% endif %}
-                            <span class="text-gray-700">{{ opt.text }}</span>
-                        </label>
-                        </div>
-                        {% endfor %}
-                    </div>
-
-
-
-
-                    {% elif q.question_type == "text" %}
-                    <input type="text" name="q_{{ q.id }}" placeholder="Введите короткий ответ"
-                        class="w-full border rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" autocomplete="off">
-
-                    {% elif q.question_type == "long_text" %}
-                    <textarea name="q_{{ q.id }}" rows="4" placeholder="Введите развернутый ответ"
-                        class="w-full border rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" autocomplete="off"></textarea>
-
-                    {% elif q.question_type == "number" %}
-                    <input type="number" name="q_{{ q.id }}" placeholder="Введите число"
-                        class="w-40 border rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" autocomplete="off">
-
-                    {% elif q.question_type == "order" %}
-                    <div class="space-y-2">
-                        <ul id="order_{{ q.id }}" class="order-list list-none p-0 space-y-2" data-order-input-id="order_input_{{ q.id }}">
-                            {% for opt in q.options.all %}
-                            <li class="bg-gray-100 p-3 rounded-lg border border-gray-200 cursor-pointer hover:bg-indigo-50 transition relative"
-                                data-option-id="{{ opt.id }}">
-                                <span
-                                    class="order-number absolute top-1 right-2 text-white bg-indigo-600 w-6 h-6 text-center rounded-full hidden"></span>
-                                {{ opt.text }}
-                            </li>
-                            {% endfor %}
-                        </ul>
-                        <input type="hidden" name="q_{{ q.id }}" id="order_input_{{ q.id }}">
-                        <p class="text-sm text-gray-500 mt-2">* Кликните по элементам в правильном порядке</p>
-                    </div>
-
-                    {% endif %}
+        <section
+            class="group bg-white/80 backdrop-blur-sm rounded-2xl p-6 sm:p-8 border border-gray-100 hover:border-indigo-300 hover:shadow-xl transition-all duration-300">
+            <div class="flex flex-col gap-4">
+                {% if q.image %}
+                <div class="flex justify-center mb-2">
+                    <img src="{{ q.image.url }}" alt="Изображение вопроса"
+                        class="rounded-xl border border-gray-200 shadow-sm max-h-60 object-contain transition-transform duration-300 group-hover:scale-[1.02]">
                 </div>
+                {% endif %}
+
+                <div>
+                    <p class="font-semibold text-lg sm:text-xl text-gray-900 mb-3 leading-snug">
+                        {{ forloop.counter }}. {{ q.text }}
+                        <span class="text-sm text-gray-400 ml-2">({{ q.points }} б.)</span>
+                    </p>
+                </div>
+
+                <!-- SINGLE -->
+                {% if q.question_type == "single" %}
+                <div class="grid gap-3">
+                    {% for opt in q.options.all %}
+                    <label for="opt_{{ opt.id }}"
+                        class="flex items-start gap-3 p-4 border rounded-xl cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/60 transition peer-checked:border-indigo-600">
+                        <input type="radio" id="opt_{{ opt.id }}" name="q_{{ q.id }}" value="{{ opt.id }}"
+                            class="mt-1 h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500">
+                        <span class="text-gray-800">{{ opt.text }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+
+                <!-- MULTIPLE -->
+                {% elif q.question_type == "multiple" %}
+                <div class="grid gap-3">
+                    {% for opt in q.options.all %}
+                    <label for="opt_{{ opt.id }}"
+                        class="flex items-start gap-3 p-4 border rounded-xl cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/60 transition">
+                        <input type="checkbox" id="opt_{{ opt.id }}" name="q_{{ q.id }}" value="{{ opt.id }}"
+                            class="mt-1 h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500">
+                        <span class="text-gray-800">{{ opt.text }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+
+                <!-- TEXT -->
+                {% elif q.question_type == "text" %}
+                <input type="text" name="q_{{ q.id }}" placeholder="Введите короткий ответ"
+                    class="w-full border rounded-xl p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white/70">
+
+                <!-- LONG TEXT -->
+                {% elif q.question_type == "long_text" %}
+                <textarea name="q_{{ q.id }}" rows="4" placeholder="Введите развернутый ответ"
+                    class="w-full border rounded-xl p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white/70"></textarea>
+
+                <!-- NUMBER -->
+                {% elif q.question_type == "number" %}
+                <input type="number" name="q_{{ q.id }}" placeholder="Введите число"
+                    class="w-40 border rounded-xl p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white/70">
+
+                <!-- ORDER -->
+                {% elif q.question_type == "order" %}
+                <ul id="order_{{ q.id }}" class="order-list space-y-2" data-order-input-id="order_input_{{ q.id }}">
+                    {% for opt in q.options.all %}
+                    <li class="bg-gray-50 p-3 rounded-xl border border-gray-200 cursor-pointer hover:bg-indigo-50 transition relative"
+                        data-option-id="{{ opt.id }}">
+                        <span
+                            class="order-number absolute top-1 right-2 text-white bg-indigo-600 w-6 h-6 text-center rounded-full hidden"></span>
+                        {{ opt.text }}
+                    </li>
+                    {% endfor %}
+                </ul>
+                <input type="hidden" name="q_{{ q.id }}" id="order_input_{{ q.id }}">
+                <p class="text-sm text-gray-500 mt-2">* Кликните по элементам в правильном порядке</p>
+                {% endif %}
             </div>
-        </div>
+        </section>
         {% endfor %}
 
         <!-- Кнопка отправки -->
-        <div class="pt-4 items-center">
+        <div class="pt-6 text-center">
             <button type="submit" id="submit-button"
-                class="w-1/2 bg-indigo-600 text-white py-3.5 rounded-xl text-lg font-semibold shadow-md hover:bg-indigo-700 hover:shadow-lg active:scale-[0.98] transition">
+                class="w-full sm:w-1/2 bg-gradient-to-r from-indigo-600 to-violet-600 text-white py-3.5 rounded-xl text-lg font-semibold shadow-md hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all">
                 Отправить ответы
             </button>
         </div>
     </form>
-</div>
+</main>
+
 <script src="{% static 'js/test-page.js' %}" defer></script>
 {% endblock %}

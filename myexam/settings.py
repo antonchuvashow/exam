@@ -175,7 +175,10 @@ LOGIN_REDIRECT_URL = "/"
 LOGOUT_REDIRECT_URL = "/"
 
 # Используем кастомную форму
-SOCIALACCOUNT_FORMS = {"signup": "myexam.forms.SocialSignupForm"}
+SOCIALACCOUNT_FORMS = {"signup": "myexam.forms.social_signup.SocialSignupForm"}
+ACCOUNT_FORMS = {'signup': 'myexam.forms.custom_signup.CustomSignupForm'}
+AUTH_PASSWORD_VALIDATORS = []
+
 
 SOCIALACCOUNT_ADAPTER = "myexam.adapters.GoogleAccountAdapter"
 
@@ -194,22 +197,23 @@ TAILWIND_APP_NAME = "ui"
 # Path to the pre-trained model for semantic similarity
 MODEL_PATH = "models/USER2-base.onnx"
 
+ADMIN_URL=os.environ.get("ADMIN_URL", "admin/")
 
-# LOGGING = {
-#     "version": 1,
-#     "disable_existing_loggers": False,
-#     "handlers": {
-#         "console": {"class": "logging.StreamHandler"},
-#     },
-#     "root": {
-#         "handlers": ["console"],
-#         "level": "INFO",
-#     },
-#     "loggers": {
-#         "tests": {
-#             "handlers": ["console"],
-#             "level": "DEBUG",
-#             "propagate": False,
-#         },
-#     },
-# }
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "console": {"class": "logging.StreamHandler"},
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": "INFO",
+    },
+    "loggers": {
+        "tests": {
+            "handlers": ["console"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
+    },
+}
