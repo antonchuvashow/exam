@@ -190,6 +190,7 @@ class UserTestSessionAdmin(admin.ModelAdmin):
         "tab_switches",
         "time_outside_seconds",
         "submitted_due_to_violation",
+        "started_at",
         "finished_at",
     )
     readonly_fields = ("client_token", "last_heartbeat")
