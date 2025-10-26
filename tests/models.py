@@ -81,6 +81,7 @@ class GradingSystem(models.Model):
     def __str__(self):
         return self.name
 
+    @property
     def suggested_thresholds(self):
         grade_count = self.grades.count()
         if grade_count < 2:
@@ -103,7 +104,7 @@ class GradingSystem(models.Model):
         for grade, t in zip(self.grades.order_by('order'), thresholds):
             result.append(f"{grade.grade_name}: от {t}%")
 
-        return "Предлагаемые пороги: " + ", ".join(result)
+        return "\n ".join(result)
 
 
 class Grade(models.Model):

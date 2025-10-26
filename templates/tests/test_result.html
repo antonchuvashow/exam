@@ -3,24 +3,34 @@
 <div class="max-w-4xl mx-auto pt-10 pb-10">
     <h1 class="text-2xl font-bold mb-6 text-gray-800">{{ test.title }}</h1>
     
-    <div class="text-center mb-6">
-        <p class="text-gray-600 text-lg mb-2">Ваш результат:</p>
-        <p class="text-4xl font-bold text-blue-600">{{ session.score_percent|floatformat:0 }}%</p>
-        <p class="text-gray-600 mt-2">{{ session.earned_points }} из {{ session.total_points }} баллов</p>
-        {% if test.show_grade %}
-            <p class="text-gray-600 mt-2">Предварительная оценка: {{ session.grade }}</p>
-        {% endif %}
+    <div class="relative mb-10">
+        <div class="bg-gradient-to-r from-indigo-500 to-blue-500 text-white rounded-2xl shadow-lg p-8 text-center">
+            <h2 class="text-2xl font-semibold tracking-wide mb-3">Ваш результат</h2>
+            <p class="text-6xl font-bold drop-shadow-md">{{ session.score_percent|floatformat:0 }}%</p>
+            <p class="text-lg mt-3 opacity-90">
+                {{ session.earned_points|floatformat:1 }} из {{ session.total_points }} баллов
+            </p>
+            {% if test.show_grade %}
+            <p class="mt-2 text-base opacity-90">
+                Предварительная оценка: <span class="font-semibold">{{ session.grade }}</span>
+            </p>
+            {% endif %}
+        </div>
 
+        {% if session.tab_switches > 0 %}
+        <div class="mt-6 bg-red-50 border border-red-200 text-red-700 rounded-xl p-4 text-center">
+            <p>
+                Времени вне страницы: <b>{{ session.time_outside_seconds }}</b> сек. Нарушения:
+                <b>{{ session.tab_switches }}</b> из <b>{{ test.max_warnings }}</b>.
+                {% if session.submitted_due_to_violation %}
+                <br>
+                Тест завершён автоматически из-за превышения лимита нарушений.
+                {% endif %}
+            </p>
+        </div>
+        {% endif %}
     </div>
 
-    {% if session.tab_switches > 0 %}
-    <div class="bg-red-50 border border-red-200 text-red-600 rounded-xl p-4 mb-6">
-        Времени вне страницы: <b>{{ session.time_outside_seconds }}</b> сек. Нарушения: <b>{{ session.tab_switches }}</b> из <b>{{ test.max_warnings }}</b>.
-        {% if session.submitted_due_to_violation %}
-        Тест завершён автоматически из-за превышения лимита нарушений.
-        {% endif %}
-    </div>
-    {% endif %}
 
     {% if session.finished_at %}
     <p class="text-gray-500 text-sm text-center mb-4">Завершено: {{ session.finished_at|date:"d.m.Y H:i" }}</p>
