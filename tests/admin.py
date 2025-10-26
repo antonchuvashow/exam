@@ -3,7 +3,7 @@ from django.utils.html import format_html
 from django.core.exceptions import ValidationError
 from django.urls import path
 from django.shortcuts import render, redirect
-from .models import Test, Question, AnswerOption, UserTestSession, UserAnswer
+from .models import Test, Question, AnswerOption, UserTestSession, UserAnswer, Grade, GradingSystem
 from .forms import QuestionAdminForm, TestImportForm
 import json
 
@@ -110,7 +110,7 @@ class TestAdmin(admin.ModelAdmin):
     inlines = [QuestionInline]
     fieldsets = (
         ("Основное", {"fields": ("title", "description", "groups")}),
-        ("Настройки теста", {"fields": ("duration_minutes", "max_warnings", "show_answers")}),
+        ("Настройки теста", {"fields": ("duration_minutes", "max_warnings", "show_answers", "show_grade")}),
     )
 
     def groups_preview(self, obj):
@@ -187,6 +187,7 @@ class UserTestSessionAdmin(admin.ModelAdmin):
         "get_user_full_name",
         "test",
         "score_percent",
+        "grade",
         "tab_switches",
         "time_outside_seconds",
         "submitted_due_to_violation",
@@ -237,3 +238,20 @@ class UserAnswerAdmin(admin.ModelAdmin):
             points_field.widget.attrs['step'] = 0.01
             points_field.help_text = f"Максимум: {max_points}"
         return form
+
+
+class GradeInline(admin.TabularInline):
+    model = Grade
+    extra = 1
+    ordering = ("-order",)
+
+
+@admin.register(GradingSystem)
+class GradingSystemAdmin(admin.ModelAdmin):
+    list_display = ('group', 'name')
+    readonly_fields = ('suggested_thresholds',)
+    inlines = [GradeInline]
+
+    def suggested_thresholds(self, obj):
+        return obj.suggested_thresholds
+    suggested_thresholds.short_description = "Предлагаемые пороговые значения"

@@ -1,5 +1,7 @@
+import numpy as np
 from django.db import models
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group
 from .utils.scoring import score_open_answer
 import secrets
 import logging
@@ -17,6 +19,7 @@ class Test(models.Model):
     created_at = models.DateTimeField("Дата создания", auto_now_add=True)
     groups = models.ManyToManyField("auth.Group", verbose_name="Доступные группы", blank=True)
     show_answers = models.BooleanField("Показывать ответы после прохождения", default=False)
+    show_grade = models.BooleanField("Отображать оценку", default=False)
 
     class Meta:
         verbose_name = "Тест"
@@ -67,6 +70,59 @@ class AnswerOption(models.Model):
         return self.text[:50]
 
 
+class GradingSystem(models.Model):
+    group = models.OneToOneField(Group, on_delete=models.CASCADE, related_name='grading_system', verbose_name="Группа")
+    name = models.CharField("Название системы", max_length=100)
+
+    class Meta:
+        verbose_name = "Система оценивания"
+        verbose_name_plural = "Системы оценивания"
+
+    def __str__(self):
+        return self.name
+
+    def suggested_thresholds(self):
+        grade_count = self.grades.count()
+        if grade_count < 2:
+            return "Нужно как минимум 2 оценки для предложений."
+
+        # Get all completed sessions of users in this group
+        user_ids = self.group.user_set.values_list("id", flat=True)
+        sessions = UserTestSession.objects.filter(user_id__in=user_ids, score_percent__isnull=False)
+
+        if not sessions.exists():
+            # fallback evenly spaced
+            thresholds = np.linspace(0, 100, grade_count + 1)[1:]
+        else:
+            scores = list(sessions.values_list("score_percent", flat=True))
+            thresholds = np.quantile(scores, np.linspace(0, 1, grade_count + 1)[1:])
+
+        thresholds = [round(t, 2) for t in thresholds]
+
+        result = []
+        for grade, t in zip(self.grades.order_by('order'), thresholds):
+            result.append(f"{grade.grade_name}: от {t}%")
+
+        return "Предлагаемые пороги: " + ", ".join(result)
+
+
+class Grade(models.Model):
+    grading_system = models.ForeignKey(
+        GradingSystem, on_delete=models.CASCADE, related_name="grades", verbose_name="Система оценивания"
+    )
+    grade_name = models.CharField("Оценка", max_length=50)
+    min_percent = models.FloatField("Минимальный процент")
+    order = models.PositiveIntegerField("Порядок", default=0, help_text="Чем больше число, тем выше оценка.")
+
+    class Meta:
+        verbose_name = "Оценка"
+        verbose_name_plural = "Оценки"
+        ordering = ["-order"]
+
+    def __str__(self):
+        return f"{self.grade_name} (от {self.min_percent}%)"
+
+
 class UserTestSession(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="Пользователь")
     test = models.ForeignKey(Test, on_delete=models.CASCADE, verbose_name="Тест")
@@ -83,6 +139,7 @@ class UserTestSession(models.Model):
     score_percent = models.FloatField("Процент правильных ответов", null=True, blank=True)
     earned_points = models.FloatField("Набрано баллов", null=True, blank=True)
     total_points = models.FloatField("Всего баллов", null=True, blank=True)
+    grade = models.ForeignKey("Grade", on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Оценка")
 
     class Meta:
         verbose_name = "Сессия прохождения теста"
@@ -114,6 +171,26 @@ class UserTestSession(models.Model):
             self.total_points = total_points
 
         self.save(update_fields=["earned_points", "score_percent", "total_points"])
+        self.calculate_grade()
+
+    def calculate_grade(self):
+        if self.score_percent is None:
+            self.grade = None
+            self.save(update_fields=["grade"])
+            return
+
+        user_groups = self.user.groups.all()
+        grading_system = GradingSystem.objects.filter(group__in=user_groups).first()
+
+        if grading_system:
+            for grade in grading_system.grades.all():
+                if self.score_percent >= grade.min_percent:
+                    self.grade = grade
+                    self.save(update_fields=["grade"])
+                    return
+        
+        self.grade = None
+        self.save(update_fields=["grade"])
 
 
 class UserAnswer(models.Model):
@@ -155,10 +232,9 @@ class UserAnswer(models.Model):
                 correct_selected = len(correct_ids & selected_ids)
                 incorrect_selected = len(selected_ids - correct_ids)
 
-                # базовая дробь правильных ответов
                 if correct_ids:
                     score_fraction = (correct_selected - incorrect_selected) / len(correct_ids)
-                    score_fraction = max(score_fraction, 0)  # не даем отрицательные баллы
+                    score_fraction = max(score_fraction, 0)
                 else:
                     score_fraction = 0
 
@@ -230,13 +306,10 @@ class UserAnswer(models.Model):
                     self.points_scored = score
                 except Exception as e:
                     logger.exception(f"Ошибка при семантической оценке Q{q.id}: {e}")
-                    # fallback на нулевой балл, чтобы не ломать систему
                     self.points_scored = 0
 
                 self.save(update_fields=["points_scored"])
                 return self.points_scored
-
-
 
         except Exception as e:
             logger.exception(f"Ошибка при проверке правильности ответа для вопроса {q.id}: {e}")
