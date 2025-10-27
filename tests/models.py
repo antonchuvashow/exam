@@ -26,7 +26,7 @@ class Test(models.Model):
         verbose_name_plural = "Тесты"
 
     def __str__(self):
-        return self.title
+        return f"{self.title} — {', '.join(self.groups.all().values_list('name', flat=True))}"
 
 
 class Question(models.Model):
@@ -239,7 +239,7 @@ class UserAnswer(models.Model):
                 else:
                     score_fraction = 0
 
-                self.points_scored = round(points * score_fraction, 2)
+                self.points_scored = round(points * score_fraction)
                 logger.debug(f"[multiple] Q{q.id}: correct={correct_selected}, incorrect={incorrect_selected}, score={self.points_scored}")
 
 
@@ -271,7 +271,7 @@ class UserAnswer(models.Model):
                     self.points_scored = points
                 else:
                     matches = sum(1 for a, b in zip(user_order_ids, correct_order_ids) if a == b)
-                    self.points_scored = round(points * matches / len(correct_order_ids), 2)
+                    self.points_scored = round(points * matches / len(correct_order_ids))
 
                 logger.debug(f"[order] Q{q.id}: score={self.points_scored}")
 
@@ -304,7 +304,7 @@ class UserAnswer(models.Model):
                         aspect_weight=float(q.metadata.get("aspect_weight", 0.5)),
                         length_penalty_min_ratio=float(q.metadata.get("length_penalty_min_ratio", 0.35)),
                     )
-                    self.points_scored = score
+                    self.points_scored = round(score)
                 except Exception as e:
                     logger.exception(f"Ошибка при семантической оценке Q{q.id}: {e}")
                     self.points_scored = 0
