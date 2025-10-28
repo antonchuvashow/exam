@@ -4,8 +4,6 @@ x-app: &default-app
   build:
     context: "."
   image: myexam_app:latest
-  volumes:
-    - .:/app
   restart: "unless-stopped"
   environment:
     DJANGO_SETTINGS_MODULE: myexam.settings
@@ -21,12 +19,15 @@ services:
     env_file:
       - .env
     volumes:
+      - .:/app
       - static_volume:/app/staticfiles
       - media_volume:/app/media
 
   tailwind:
     <<: *default-app
     tty: true
+    volumes:
+      - .:/app
     depends_on:
       - web
     environment:
