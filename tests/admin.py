@@ -187,7 +187,7 @@ class UserTestSessionAdmin(admin.ModelAdmin):
         "get_user_full_name",
         "test",
         "score_percent",
-        "grade",
+        "display_grade",
         "tab_switches",
         "time_outside_seconds",
         "submitted_due_to_violation",
@@ -204,6 +204,21 @@ class UserTestSessionAdmin(admin.ModelAdmin):
 
     get_user_full_name.short_description = "Пользователь"
     get_user_full_name.admin_order_field = "user__last_name"
+
+    def display_grade(self, obj):
+        if obj.test.show_grade and obj.grade:
+            return obj.grade.grade_name
+        return "—"
+    display_grade.short_description = "Оценка"
+
+    def get_form(self, request, obj=None, **kwargs):
+        form = super().get_form(request, obj, **kwargs)
+        if obj:
+            user_groups = obj.user.groups.all()
+            grading_system = GradingSystem.objects.filter(groups__in=user_groups).first()
+            if grading_system:
+                form.base_fields['grade'].queryset = Grade.objects.filter(grading_system=grading_system)
+        return form
 
 
 @admin.register(UserAnswer)
@@ -248,9 +263,10 @@ class GradeInline(admin.TabularInline):
 
 @admin.register(GradingSystem)
 class GradingSystemAdmin(admin.ModelAdmin):
-    list_display = ('group', 'name')
+    list_display = ('name',)
     readonly_fields = ('suggested_thresholds',)
     inlines = [GradeInline]
+    filter_horizontal = ('groups',)
 
     def suggested_thresholds(self, obj):
         return obj.suggested_thresholds

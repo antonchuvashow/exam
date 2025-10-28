@@ -71,7 +71,7 @@ class AnswerOption(models.Model):
 
 
 class GradingSystem(models.Model):
-    group = models.OneToOneField(Group, on_delete=models.CASCADE, related_name='grading_system', verbose_name="Группа")
+    groups = models.ManyToManyField(Group, related_name='grading_systems', verbose_name="Группы")
     name = models.CharField("Название системы", max_length=100)
 
     class Meta:
@@ -87,12 +87,10 @@ class GradingSystem(models.Model):
         if grade_count < 2:
             return "Нужно как минимум 2 оценки для предложений."
 
-        # Get all completed sessions of users in this group
-        user_ids = self.group.user_set.values_list("id", flat=True)
+        user_ids = User.objects.filter(groups__in=self.groups.all()).values_list("id", flat=True)
         sessions = UserTestSession.objects.filter(user_id__in=user_ids, score_percent__isnull=False)
 
         if not sessions.exists():
-            # fallback evenly spaced
             thresholds = np.linspace(0, 100, grade_count + 1)[1:]
         else:
             scores = list(sessions.values_list("score_percent", flat=True))
@@ -181,7 +179,7 @@ class UserTestSession(models.Model):
             return
 
         user_groups = self.user.groups.all()
-        grading_system = GradingSystem.objects.filter(group__in=user_groups).first()
+        grading_system = GradingSystem.objects.filter(groups__in=user_groups).first()
 
         if grading_system:
             for grade in grading_system.grades.all():
