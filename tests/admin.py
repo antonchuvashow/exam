@@ -187,7 +187,7 @@ class UserTestSessionAdmin(admin.ModelAdmin):
         "get_user_full_name",
         "test",
         "score_percent",
-        "display_grade",
+        "grade",
         "tab_switches",
         "time_outside_seconds",
         "submitted_due_to_violation",
@@ -205,11 +205,6 @@ class UserTestSessionAdmin(admin.ModelAdmin):
     get_user_full_name.short_description = "Пользователь"
     get_user_full_name.admin_order_field = "user__last_name"
 
-    def display_grade(self, obj):
-        if obj.test.show_grade and obj.grade:
-            return obj.grade.grade_name
-        return "—"
-    display_grade.short_description = "Оценка"
 
     def get_form(self, request, obj=None, **kwargs):
         form = super().get_form(request, obj, **kwargs)
