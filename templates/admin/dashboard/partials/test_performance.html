@@ -1,0 +1,22 @@
+<div class="test-performance-lists">
+    <div>
+        <h4>Лучшие тесты</h4>
+        <ul>
+            {% for test in best_tests %}
+                <li>{{ test.title }}: <strong>{{ test.avg_score|floatformat:2 }}%</strong></li>
+            {% empty %}
+                <li>Нет данных</li>
+            {% endfor %}
+        </ul>
+    </div>
+    <div>
+        <h4>Худшие тесты</h4>
+        <ul>
+            {% for test in worst_tests %}
+                <li>{{ test.title }}: <strong>{{ test.avg_score|floatformat:2 }}%</strong></li>
+            {% empty %}
+                <li>Нет данных</li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>

@@ -1,0 +1,11 @@
+<ul>
+    {% for student in students %}
+        <li>
+            <strong>{{ student.get_full_name }}</strong> - 
+            Средний балл: <strong>{{ student.avg_score|floatformat:2 }}%</strong> 
+            (пройдено тестов: {{ student.test_count }})
+        </li>
+    {% empty %}
+        <li>Нет данных о студентах.</li>
+    {% endfor %}
+</ul>

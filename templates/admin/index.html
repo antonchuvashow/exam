@@ -7,10 +7,13 @@
     {{ block.super }}
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.css">
     <style>
+        #content-main {
+            max-width: 100% !important;
+            width: 100%;
+        }
         .dashboard-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            grid-auto-rows: auto;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
             gap: 2rem;
         }
         .dashboard-card {
@@ -27,6 +30,10 @@
         .full-width-card {
             grid-column: 1 / -1;
         }
+        .test-performance-lists {
+            display: flex;
+            justify-content: space-between;
+        }
     </style>
 {% endblock %}
 
@@ -41,6 +48,18 @@
         <div class="dashboard-card">
             <h2>Средний балл по тестам</h2>
             {% average_score_chart %}
+        </div>
+        <div class="dashboard-card">
+            <h2>Средний балл по группам</h2>
+            {% group_average_scores %}
+        </div>
+        <div class="dashboard-card">
+            <h2>Успеваемость по тестам</h2>
+            {% test_performance_summary %}
+        </div>
+        <div class="dashboard-card full-width-card">
+            <h2>Лидерборд студентов</h2>
+            {% top_students count=15 %}
         </div>
         <div class="dashboard-card full-width-card">
             <h2>Последние сессии</h2>
