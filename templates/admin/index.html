@@ -1,0 +1,52 @@
+{% extends "admin/base_site.html" %}
+{% load static dashboard_tags %}
+
+{% block title %}Панель управления{% endblock %}
+
+{% block extrastyle %}
+    {{ block.super }}
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.css">
+    <style>
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 2rem;
+        }
+        .dashboard-card {
+            background: #fff;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .dashboard-card h2 {
+            margin-top: 0;
+            margin-bottom: 1rem;
+            font-size: 1.2rem;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+    <h1>Панель управления</h1>
+    <div class="dashboard-grid">
+        <div class="dashboard-card">
+            <h2>Распределение оценок</h2>
+            {% grade_distribution_chart %}
+        </div>
+        <div class="dashboard-card">
+            <h2>Средний балл по тестам</h2>
+            {% average_score_chart %}
+        </div>
+        <div class="dashboard-card">
+            <h2>Последние сессии</h2>
+            {% latest_sessions %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extrahead %}
+    {{ block.super }}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
+{% endblock %}

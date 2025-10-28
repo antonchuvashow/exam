@@ -1,0 +1,17 @@
+<ul>
+    {% for session in sessions %}
+        <li>
+            <strong>{{ session.user.get_full_name }}</strong>
+            прошел(а) тест "{{ session.test.title }}"
+            {% if session.finished_at %}
+                ({{ session.finished_at|date:"d.m.Y H:i" }})
+            {% endif %}
+            - <strong>{{ session.score_percent|default:"0" }}%</strong>
+            {% if session.grade %}
+                <span style="font-weight: bold; color: #007bff;">({{ session.grade.grade_name }})</span>
+            {% endif %}
+        </li>
+    {% empty %}
+        <li>Нет недавних сессий.</li>
+    {% endfor %}
+</ul>
