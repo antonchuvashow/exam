@@ -9,7 +9,8 @@
     <style>
         .dashboard-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            grid-template-columns: 1fr 1fr;
+            grid-auto-rows: auto;
             gap: 2rem;
         }
         .dashboard-card {
@@ -22,6 +23,9 @@
             margin-top: 0;
             margin-bottom: 1rem;
             font-size: 1.2rem;
+        }
+        .full-width-card {
+            grid-column: 1 / -1;
         }
     </style>
 {% endblock %}
@@ -38,9 +42,9 @@
             <h2>Средний балл по тестам</h2>
             {% average_score_chart %}
         </div>
-        <div class="dashboard-card">
+        <div class="dashboard-card full-width-card">
             <h2>Последние сессии</h2>
-            {% latest_sessions %}
+            {% latest_sessions count=15 %}
         </div>
     </div>
 </div>
