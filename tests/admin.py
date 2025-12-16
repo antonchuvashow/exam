@@ -5,6 +5,7 @@ from django.urls import path
 from django.shortcuts import render, redirect
 from .models import Test, Question, AnswerOption, UserTestSession, UserAnswer, Grade, GradingSystem
 from .forms import QuestionAdminForm, TestImportForm
+from django.contrib.admin import RelatedOnlyFieldListFilter
 import json
 
 
@@ -195,7 +196,11 @@ class UserTestSessionAdmin(admin.ModelAdmin):
         "finished_at",
     )
     readonly_fields = ("client_token", "last_heartbeat")
-    list_filter = ("test", "test__groups", "submitted_due_to_violation")
+    list_filter = (
+        "test",
+        ("user__groups", RelatedOnlyFieldListFilter),
+        "submitted_due_to_violation",
+    )
     search_fields = ("user__first_name", "user__last_name", "test__title")
     actions = [recalc_sessions_from_answers, recalc_sessions_auto]
 
